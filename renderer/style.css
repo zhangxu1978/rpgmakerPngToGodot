@@ -1,0 +1,602 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* 工具栏样式 */
+.toolbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #333;
+    color: white;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.tool-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tool-btn {
+    padding: 8px 16px;
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.tool-btn:hover {
+    background-color: #666;
+}
+
+.tool-btn:active {
+    background-color: #777;
+}
+
+/* 容差滑块样式 */
+.tolerance-slider {
+    width: 100px;
+}
+
+.tolerance-value {
+    font-size: 14px;
+    min-width: 70px;
+}
+
+/* 切图输入框样式 */
+.slice-input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.slice-separator {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* 主内容区样式 */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    padding: 20px;
+    position: relative;
+}
+
+/* 画布容器样式 */
+.canvas-container {
+    flex: 1;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: auto;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#main-canvas {
+    display: block;
+    margin: 0 auto;
+    background-color: #fafafa;
+    cursor: grab;
+}
+
+#main-canvas:active {
+    cursor: grabbing;
+}
+
+/* 画布占位符样式 */
+.canvas-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fafafa;
+    border: 2px dashed #ccc;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.placeholder-text {
+    font-size: 18px;
+    color: #999;
+    text-align: center;
+    padding: 0 20px;
+}
+
+/* 切图预览区样式 - 抽屉式 */
+.slice-preview {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    height: calc(100% - 40px);
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    transition: all 0.3s ease;
+    transform: translateX(100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.slice-preview.show {
+    transform: translateX(0);
+}
+
+/* 素材库样式 - 抽屉式 */
+.materials-panel-drawer {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 300px;
+    height: calc(100% - 40px);
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    transition: all 0.3s ease;
+    transform: translateX(-100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.materials-panel-drawer.show {
+    transform: translateX(0);
+}
+
+/* 素材库抽屉头部样式 */
+.materials-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    background-color: #f5f5f5;
+    border-radius: 4px 4px 0 0;
+}
+
+.materials-drawer-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+/* 抽屉头部样式 */
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 15px;
+    background-color: #f5f5f5;
+    border-radius: 4px 4px 0 0;
+}
+
+.drawer-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+/* 关闭按钮样式 */
+.close-btn {
+    background-color: transparent;
+    color: #666;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.close-btn:hover {
+    background-color: #eee;
+    color: #333;
+}
+
+.slice-preview h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #333;
+}
+
+.slice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.slice-item {
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 5px;
+    text-align: center;
+}
+
+.slice-item img {
+    max-width: 100%;
+    max-height: 80px;
+    display: block;
+    margin: 0 auto 5px;
+}
+
+.slice-item span {
+    font-size: 12px;
+    color: #666;
+    display: block;
+}
+
+.save-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.save-btn:hover {
+    background-color: #45a049;
+}
+
+/* 组合图片区样式 */
+.combine-area {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.combine-area h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #333;
+}
+
+/* 组合工具栏样式 */
+.combine-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.grid-settings {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.grid-input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* 组合工作区样式 */
+.combine-workspace {
+    display: flex;
+    flex: 1;
+    gap: 20px;
+    overflow: hidden;
+}
+
+/* 素材面板样式 */
+.materials-panel {
+    width: 250px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.materials-panel h4 {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #333;
+}
+
+.materials-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.small-btn {
+    padding: 4px 8px;
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.small-btn:hover {
+    background-color: #666;
+}
+
+/* 素材列表样式 */
+.materials-list {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    padding: 5px;
+}
+
+.material-item {
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 5px;
+    text-align: center;
+    cursor: move;
+    background-color: white;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.material-item:hover {
+    border-color: #4CAF50;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.material-item img {
+    max-width: 100%;
+    max-height: 60px;
+    display: block;
+    margin: 0 auto 5px;
+    pointer-events: none;
+}
+
+.material-item span {
+    font-size: 10px;
+    color: #666;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+/* 放置面板样式 */
+.placement-panel {
+    flex: 1;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.placement-panel h4 {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #333;
+}
+
+/* 放置容器样式 */
+.placement-container {
+    flex: 1;
+    background-color: white;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    position: relative;
+    overflow: auto;
+    background-image: 
+        linear-gradient(#eee 1px, transparent 1px),
+        linear-gradient(90deg, #eee 1px, transparent 1px);
+    background-size: 10px 10px;
+}
+
+/* 网格覆盖层样式 */
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    background-image: 
+        linear-gradient(rgba(0, 0, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 255, 0.1) 1px, transparent 1px);
+    z-index: 1;
+}
+
+/* 组合画布样式 */
+#combine-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    cursor: crosshair;
+}
+
+/* 网格单元格样式 */
+.grid-cells {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.grid-cell {
+    position: absolute;
+    border: 1px dashed transparent;
+    transition: all 0.2s;
+}
+
+.grid-cell.highlighted {
+    border-color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* 拖拽相关样式 */
+.dragging {
+    opacity: 0.5;
+    transform: scale(1.1);
+}
+
+.drag-over {
+    background-color: rgba(76, 175, 80, 0.05);
+}
+
+/* 放置的图片样式 */
+.placed-image {
+    position: absolute;
+    cursor: move;
+    z-index: 4;
+    user-select: none;
+    transition: all 0.2s;
+}
+
+.placed-image:hover {
+    outline: 2px solid #4CAF50;
+}
+
+.placed-image.selected {
+    outline: 2px solid #2196F3;
+    z-index: 5;
+}
+
+/* 移除按钮样式 */
+.remove-image-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    z-index: 6;
+}
+
+.remove-image-btn:hover {
+    background-color: #da190b;
+}
+
+/* 状态栏样式 */
+.status-bar {
+    padding: 8px 20px;
+    background-color: #f0f0f0;
+    border-top: 1px solid #ddd;
+    font-size: 14px;
+    color: #666;
+}
+
+/* 拖拽样式 */
+.dragover {
+    border-color: #4CAF50 !important;
+    background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .slice-preview,
+    .combine-area {
+        width: 100%;
+        height: 300px;
+    }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

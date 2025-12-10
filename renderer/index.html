@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单图片编辑器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="tool-group">
+                <button id="open-btn" class="tool-btn">打开图片</button>
+                <button id="export-btn" class="tool-btn">导出PNG</button>
+            </div>
+            
+            <div class="tool-group">
+                <button id="remove-bg-btn" class="tool-btn">去除背景</button>
+                <input type="range" id="tolerance-slider" min="0" max="100" value="20" class="tolerance-slider">
+                <span class="tolerance-value">容差: 20</span>
+            </div>
+            
+            <div class="tool-group">
+                <button id="slice-btn" class="tool-btn">切图</button>
+                <input type="number" id="slice-width" min="1" value="48" class="slice-input">
+                <span class="slice-separator">×</span>
+                <input type="number" id="slice-height" min="1" value="48" class="slice-input">
+            </div>
+            
+            <div class="tool-group">
+                <button id="combine-btn" class="tool-btn">组合图片</button>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 画布容器 - 主区域 -->
+            <div class="canvas-container" id="main-canvas-container">
+                <canvas id="main-canvas"></canvas>
+                <div class="canvas-placeholder" id="canvas-placeholder">
+                    <div class="placeholder-text">点击"打开图片"或拖拽图片到此处</div>
+                </div>
+            </div>
+            
+            <!-- 组合图片区 - 主区域 -->
+            <div class="combine-area" id="combine-area" style="display: none;">
+                <h3>组合图片</h3>
+                
+                <!-- 组合工具栏 -->
+                <div class="combine-toolbar">
+                    <div class="grid-settings">
+                        <label>网格大小:</label>
+                        <input type="number" id="grid-width" min="1" value="48" class="grid-input">
+                        <span>×</span>
+                        <input type="number" id="grid-height" min="1" value="48" class="grid-input">
+                    </div>
+                    <div class="grid-settings">
+                        <label>行列数:</label>
+                        <input type="number" id="grid-cols" min="1" value="10" class="grid-input">
+                        <span>列 ×</span>
+                        <input type="number" id="grid-rows" min="1" value="10" class="grid-input">
+                        <span>行</span>
+                        <button id="update-grid-btn" class="tool-btn">更新网格</button>
+                    </div>
+                    <button id="toggle-materials-btn" class="tool-btn">切换素材库</button>
+                    <button id="add-images-btn" class="tool-btn">添加图片</button>
+                    <button id="add-slices-btn" class="tool-btn">添加切片</button>
+                    <button id="clear-grid-btn" class="tool-btn">清空网格</button>
+                    <button id="save-combined-btn" class="tool-btn">保存组合</button>
+                </div>
+                
+                <!-- 组合工作区 - 主放置区 -->
+                <div class="combine-workspace-main">
+                    <!-- 右侧放置区 - 主区域 -->
+                    <div class="placement-panel-main">
+                        <div class="placement-container">
+                            <div class="grid-overlay" id="grid-overlay"></div>
+                            <canvas id="combine-canvas"></canvas>
+                            <div class="grid-cells" id="grid-cells"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 左侧素材区 - 抽屉式 -->
+                    <div class="materials-panel-drawer" id="materials-drawer">
+                        <div class="materials-drawer-header">
+                            <h4>素材库</h4>
+                            <button id="close-materials-btn" class="close-btn">×</button>
+                        </div>
+                        <div class="materials-list" id="materials-list"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 切图预览区 - 抽屉式 -->
+            <div class="slice-preview-drawer" id="slice-preview" style="display: none;">
+                <div class="drawer-header">
+                    <h3>切图预览</h3>
+                    <button id="close-slice-preview-btn" class="close-btn">×</button>
+                </div>
+                <div class="slice-grid" id="slice-grid"></div>
+                <button id="save-slices-btn" class="save-btn">保存所有切片</button>
+            </div>
+        </div>
+        
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <span id="status-text">就绪</span>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

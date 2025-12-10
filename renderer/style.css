@@ -600,3 +600,115 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* 切图预览编辑器样式 */
+.slice-preview-container {
+    position: relative;
+    overflow: auto;
+    max-height: 70vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.slice-preview-container canvas {
+    display: block;
+    cursor: crosshair;
+    border: 2px solid #333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 切图预览操作按钮区 */
+.slice-preview-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+/* 图块操作菜单样式 */
+.tile-action-menu {
+    position: fixed;
+    background: #2a2a2a;
+    border: 2px solid #444;
+    border-radius: 4px;
+    padding: 10px;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    min-width: 120px;
+}
+
+.tile-action-menu .tool-btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.tile-action-menu .tool-btn:last-child {
+    margin-bottom: 0;
+}
+
+/* 切图预览说明文字样式 */
+.slice-preview-drawer .instruction-div {
+    margin: 10px 0;
+    padding: 10px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #e0e0e0;
+    line-height: 1.6;
+}
+
+.slice-preview-drawer .instruction-div strong {
+    color: #4CAF50;
+}
+
+/* 组合工作区主区域样式 */
+.combine-workspace-main {
+    display: flex;
+    flex: 1;
+    gap: 20px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 放置面板主区域样式 */
+.placement-panel-main {
+    flex: 1;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 切图预览抽屉样式 */
+.slice-preview-drawer {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 400px;
+    max-width: 90vw;
+    height: calc(100% - 40px);
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    transition: all 0.3s ease;
+    transform: translateX(100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.slice-preview-drawer.show {
+    transform: translateX(0);
+}

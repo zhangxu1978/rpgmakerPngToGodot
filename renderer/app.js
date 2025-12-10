@@ -70,13 +70,13 @@ function initApp() {
     // 设置画布
     appState.canvas = elements.canvas;
     appState.ctx = appState.canvas.getContext('2d');
-    
+
     // 绑定事件监听器
     bindEventListeners();
-    
+
     // 初始化容差值
     updateToleranceValue();
-    
+
     // 设置状态栏
     updateStatus('就绪');
 }
@@ -89,40 +89,40 @@ function bindEventListeners() {
     elements.removeBgBtn.addEventListener('click', removeBackground);
     elements.sliceBtn.addEventListener('click', sliceImage);
     elements.saveSlicesBtn.addEventListener('click', saveAllSlices);
-   // 组合图片事件
+    // 组合图片事件
     elements.combineBtn.addEventListener('click', toggleCombineMode);
     elements.addImagesBtn.addEventListener('click', addCombineImages);
     elements.saveCombinedBtn.addEventListener('click', saveCombinedImage);
     elements.clearGridBtn.addEventListener('click', clearGrid);
-    
+
     // 网格设置事件
     elements.updateGridBtn.addEventListener('click', updateGridSettings);
-    
+
     // 素材添加事件
     elements.addMaterialsBtn.addEventListener('click', addCombineImages);
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
-    
+
     // 拖拽事件
     elements.placementContainer.addEventListener('dragover', handleDragOverPlacement);
     elements.placementContainer.addEventListener('dragenter', handleDragEnterPlacement);
     elements.placementContainer.addEventListener('dragleave', handleDragLeavePlacement);
     elements.placementContainer.addEventListener('drop', handleDropPlacement);
-    
+
     // 抽屉式布局事件
     elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeSlicePreviewBtn.addEventListener('click', closeSlicePreview);
-    
+
     // 容差滑块事件
     elements.toleranceSlider.addEventListener('input', (e) => {
         appState.tolerance = parseInt(e.target.value);
         updateToleranceValue();
     });
-    
+
     // 拖拽事件
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('drop', handleDrop);
-    
+
     // 菜单事件（来自主进程）
     if (window.electronAPI) {
         window.electronAPI.onMenuOpenFile(openImage);
@@ -187,13 +187,13 @@ function drawImageToCanvas(img) {
     // 设置画布尺寸
     appState.canvas.width = img.width;
     appState.canvas.height = img.height;
-    
+
     // 清空画布
     appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
-    
+
     // 绘制图片
     appState.ctx.drawImage(img, 0, 0);
-    
+
     // 隐藏切图预览和组合区域
     elements.slicePreview.style.display = 'none';
     elements.combineArea.style.display = 'none';
@@ -209,7 +209,7 @@ function handleDragOver(e) {
 async function handleDrop(e) {
     e.preventDefault();
     elements.placeholder.classList.remove('dragover');
-    
+
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
         const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -225,82 +225,527 @@ function removeBackground() {
         updateStatus('请先打开图片');
         return;
     }
-    
+
     updateStatus('正在去除背景...');
-    
+
     // 获取画布像素数据
     const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
     const data = imageData.data;
-    
+
     // 获取左上角像素作为背景色（可以改进为点击选择背景色）
     const bgR = data[0];
     const bgG = data[1];
     const bgB = data[2];
-    
+
     // 容差转成RGB差值范围
     const tolerance = appState.tolerance;
-    
+
     // 遍历所有像素，将接近背景色的像素设为透明
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-        
+
         // 计算与背景色的欧几里得距离
         const distance = Math.sqrt(
             Math.pow(r - bgR, 2) +
             Math.pow(g - bgG, 2) +
             Math.pow(b - bgB, 2)
         );
-        
+
         // 如果距离小于容差，设置为透明
         if (distance < tolerance) {
             data[i + 3] = 0; // 设置alpha通道为0
         }
     }
-    
+
     // 将处理后的数据放回画布
     appState.ctx.putImageData(imageData, 0, 0);
-    
+
     updateStatus('背景去除完成');
 }
 
-// 切图功能
+// 切图预览状态
+const slicePreviewState = {
+    tiles: [], // 所有图块信息 {row, col, merged: false, deleted: false, mergeGroup: null}
+    mergeGroups: [], // 合并组 {id, tiles: [{row, col}], bounds: {minRow, maxRow, minCol, maxCol}}
+    isSelecting: false,
+    selectionStart: null,
+    selectionCurrent: null,
+    selectedTiles: [],
+    previewCanvas: null,
+    previewCtx: null
+};
+
+// 切图功能 - 显示预览
 function sliceImage() {
     if (!appState.currentImage) {
         updateStatus('请先打开图片');
         return;
     }
-    
+
     const sliceWidth = parseInt(elements.sliceWidth.value);
     const sliceHeight = parseInt(elements.sliceHeight.value);
-    
+
     if (sliceWidth <= 0 || sliceHeight <= 0) {
         updateStatus('切图尺寸必须大于0');
         return;
     }
-    
-    updateStatus('正在生成切片...');
-    
+
     // 计算切片数量
     const rows = Math.ceil(appState.canvas.height / sliceHeight);
     const cols = Math.ceil(appState.canvas.width / sliceWidth);
-    
-    // 生成切片
-    const slices = [];
+
+    // 初始化图块信息
+    slicePreviewState.tiles = [];
+    slicePreviewState.mergeGroups = [];
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-            // 创建临时画布
+            slicePreviewState.tiles.push({
+                row: row,
+                col: col,
+                merged: false,
+                deleted: false,
+                mergeGroup: null
+            });
+        }
+    }
+
+    // 显示切图预览界面
+    showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols);
+
+    updateStatus('切图预览 - 拖动鼠标选择图块进行合并或删除');
+}
+
+// 显示切图预览编辑器
+function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
+    // 清空预览区
+    elements.sliceGrid.innerHTML = '';
+
+    // 创建预览画布容器
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'slice-preview-container';
+    previewContainer.style.cssText = 'position: relative; overflow: auto; max-height: 70vh;';
+
+    // 创建预览画布
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = appState.canvas.width;
+    previewCanvas.height = appState.canvas.height;
+    previewCanvas.style.cssText = 'display: block; cursor: crosshair; border: 2px solid #333;';
+    slicePreviewState.previewCanvas = previewCanvas;
+    slicePreviewState.previewCtx = previewCanvas.getContext('2d');
+
+    // 绘制原图
+    slicePreviewState.previewCtx.drawImage(appState.canvas, 0, 0);
+
+    // 绘制网格
+    drawSliceGrid(sliceWidth, sliceHeight, rows, cols);
+
+    // 添加鼠标事件
+    previewCanvas.addEventListener('mousedown', (e) => handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols));
+    previewCanvas.addEventListener('mousemove', (e) => handleSlicePreviewMouseMove(e, sliceWidth, sliceHeight, cols));
+    previewCanvas.addEventListener('mouseup', (e) => handleSlicePreviewMouseUp(e, sliceWidth, sliceHeight, cols));
+    previewCanvas.addEventListener('mouseleave', () => handleSlicePreviewMouseLeave());
+
+    previewContainer.appendChild(previewCanvas);
+
+    // 创建操作按钮区
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'slice-preview-actions';
+    actionsDiv.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = '确认切图';
+    confirmBtn.className = 'tool-btn';
+    confirmBtn.onclick = () => executeSlicing(sliceWidth, sliceHeight, rows, cols);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.className = 'tool-btn';
+    cancelBtn.onclick = closeSlicePreview;
+
+    actionsDiv.appendChild(confirmBtn);
+    actionsDiv.appendChild(cancelBtn);
+
+    // 添加说明文字
+    const instructionDiv = document.createElement('div');
+    instructionDiv.style.cssText = 'margin: 10px 0; padding: 10px; background: #2a2a2a; border-radius: 4px; font-size: 14px;';
+    instructionDiv.innerHTML = `
+        <strong>操作说明：</strong><br>
+        • 拖动鼠标选择连续的图块<br>
+        • 松开鼠标后选择操作：<strong>合并</strong>（将选中图块合并为一个）、<strong>删除</strong>（不输出这些图块）、<strong>取消</strong>（取消选择）<br>
+        • 绿色边框：已合并的图块组<br>
+        • 红色半透明：已删除的图块<br>
+        • 蓝色半透明：当前选择的图块
+    `;
+
+    elements.sliceGrid.appendChild(instructionDiv);
+    elements.sliceGrid.appendChild(previewContainer);
+    elements.sliceGrid.appendChild(actionsDiv);
+
+    // 显示预览区抽屉
+    updateSlicePreviewDisplay();
+}
+
+// 绘制切图网格
+function drawSliceGrid(sliceWidth, sliceHeight, rows, cols) {
+    const ctx = slicePreviewState.previewCtx;
+    const canvas = slicePreviewState.previewCanvas;
+
+    // 重绘原图
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(appState.canvas, 0, 0);
+
+    // 绘制已删除的图块（红色半透明）
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+    slicePreviewState.tiles.forEach(tile => {
+        if (tile.deleted) {
+            ctx.fillRect(
+                tile.col * sliceWidth,
+                tile.row * sliceHeight,
+                sliceWidth,
+                sliceHeight
+            );
+        }
+    });
+
+    // 绘制合并组（绿色边框）
+    ctx.strokeStyle = '#00ff00';
+    ctx.lineWidth = 3;
+    slicePreviewState.mergeGroups.forEach(group => {
+        const x = group.bounds.minCol * sliceWidth;
+        const y = group.bounds.minRow * sliceHeight;
+        const width = (group.bounds.maxCol - group.bounds.minCol + 1) * sliceWidth;
+        const height = (group.bounds.maxRow - group.bounds.minRow + 1) * sliceHeight;
+        ctx.strokeRect(x, y, width, height);
+    });
+
+    // 绘制网格线
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+
+    // 垂直线
+    for (let col = 0; col <= cols; col++) {
+        ctx.beginPath();
+        ctx.moveTo(col * sliceWidth, 0);
+        ctx.lineTo(col * sliceWidth, canvas.height);
+        ctx.stroke();
+    }
+
+    // 水平线
+    for (let row = 0; row <= rows; row++) {
+        ctx.beginPath();
+        ctx.moveTo(0, row * sliceHeight);
+        ctx.lineTo(canvas.width, row * sliceHeight);
+        ctx.stroke();
+    }
+
+    // 绘制当前选择（蓝色半透明）
+    if (slicePreviewState.selectedTiles.length > 0) {
+        ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+        slicePreviewState.selectedTiles.forEach(tile => {
+            ctx.fillRect(
+                tile.col * sliceWidth,
+                tile.row * sliceHeight,
+                sliceWidth,
+                sliceHeight
+            );
+        });
+    }
+}
+
+// 鼠标按下事件
+function handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols) {
+    const rect = slicePreviewState.previewCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const col = Math.floor(x / sliceWidth);
+    const row = Math.floor(y / sliceHeight);
+
+    slicePreviewState.isSelecting = true;
+    slicePreviewState.selectionStart = { row, col };
+    slicePreviewState.selectionCurrent = { row, col };
+    slicePreviewState.selectedTiles = [{ row, col }];
+
+    drawSliceGrid(sliceWidth, sliceHeight,
+        Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+        Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+}
+
+// 鼠标移动事件
+function handleSlicePreviewMouseMove(e, sliceWidth, sliceHeight, cols) {
+    if (!slicePreviewState.isSelecting) return;
+
+    const rect = slicePreviewState.previewCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const col = Math.floor(x / sliceWidth);
+    const row = Math.floor(y / sliceHeight);
+
+    slicePreviewState.selectionCurrent = { row, col };
+
+    // 计算选择区域（矩形）
+    const minRow = Math.min(slicePreviewState.selectionStart.row, row);
+    const maxRow = Math.max(slicePreviewState.selectionStart.row, row);
+    const minCol = Math.min(slicePreviewState.selectionStart.col, col);
+    const maxCol = Math.max(slicePreviewState.selectionStart.col, col);
+
+    // 更新选中的图块
+    slicePreviewState.selectedTiles = [];
+    for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+            slicePreviewState.selectedTiles.push({ row: r, col: c });
+        }
+    }
+
+    drawSliceGrid(sliceWidth, sliceHeight,
+        Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+        Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+}
+
+// 鼠标抬起事件
+function handleSlicePreviewMouseUp(e, sliceWidth, sliceHeight, cols) {
+    if (!slicePreviewState.isSelecting) return;
+
+    slicePreviewState.isSelecting = false;
+
+    // 如果只选择了一个图块，不显示操作菜单
+    if (slicePreviewState.selectedTiles.length <= 1) {
+        slicePreviewState.selectedTiles = [];
+        drawSliceGrid(sliceWidth, sliceHeight,
+            Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+            Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+        return;
+    }
+
+    // 检查选中的图块是否连续（矩形区域）
+    if (!areSelectedTilesContinuous()) {
+        updateStatus('只能选择连续的矩形区域');
+        slicePreviewState.selectedTiles = [];
+        drawSliceGrid(sliceWidth, sliceHeight,
+            Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+            Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+        return;
+    }
+
+    // 显示操作菜单
+    showTileActionMenu(e, sliceWidth, sliceHeight);
+}
+
+// 鼠标离开事件
+function handleSlicePreviewMouseLeave() {
+    if (slicePreviewState.isSelecting) {
+        slicePreviewState.isSelecting = false;
+    }
+}
+
+// 检查选中的图块是否连续
+function areSelectedTilesContinuous() {
+    if (slicePreviewState.selectedTiles.length === 0) return false;
+
+    // 获取边界
+    const rows = slicePreviewState.selectedTiles.map(t => t.row);
+    const cols = slicePreviewState.selectedTiles.map(t => t.col);
+    const minRow = Math.min(...rows);
+    const maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols);
+    const maxCol = Math.max(...cols);
+
+    // 检查是否形成完整的矩形
+    const expectedCount = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+    return slicePreviewState.selectedTiles.length === expectedCount;
+}
+
+// 显示图块操作菜单
+function showTileActionMenu(e, sliceWidth, sliceHeight) {
+    // 移除已存在的菜单
+    const existingMenu = document.querySelector('.tile-action-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+
+    // 创建菜单
+    const menu = document.createElement('div');
+    menu.className = 'tile-action-menu';
+    menu.style.cssText = `
+        position: fixed;
+        left: ${e.clientX}px;
+        top: ${e.clientY}px;
+        background: #2a2a2a;
+        border: 2px solid #444;
+        border-radius: 4px;
+        padding: 10px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    `;
+
+    const mergeBtn = document.createElement('button');
+    mergeBtn.textContent = '合并';
+    mergeBtn.className = 'tool-btn';
+    mergeBtn.style.cssText = 'display: block; width: 100%; margin-bottom: 5px;';
+    mergeBtn.onclick = () => {
+        mergeTiles(sliceWidth, sliceHeight);
+        menu.remove();
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '删除';
+    deleteBtn.className = 'tool-btn';
+    deleteBtn.style.cssText = 'display: block; width: 100%; margin-bottom: 5px;';
+    deleteBtn.onclick = () => {
+        deleteTiles(sliceWidth, sliceHeight);
+        menu.remove();
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.className = 'tool-btn';
+    cancelBtn.style.cssText = 'display: block; width: 100%;';
+    cancelBtn.onclick = () => {
+        slicePreviewState.selectedTiles = [];
+        drawSliceGrid(sliceWidth, sliceHeight,
+            Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+            Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+        menu.remove();
+    };
+
+    menu.appendChild(mergeBtn);
+    menu.appendChild(deleteBtn);
+    menu.appendChild(cancelBtn);
+
+    document.body.appendChild(menu);
+
+    // 点击菜单外部关闭菜单
+    setTimeout(() => {
+        const closeMenu = (event) => {
+            if (!menu.contains(event.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        document.addEventListener('click', closeMenu);
+    }, 100);
+}
+
+// 合并图块
+function mergeTiles(sliceWidth, sliceHeight) {
+    if (slicePreviewState.selectedTiles.length === 0) return;
+
+    // 计算边界
+    const rows = slicePreviewState.selectedTiles.map(t => t.row);
+    const cols = slicePreviewState.selectedTiles.map(t => t.col);
+    const minRow = Math.min(...rows);
+    const maxRow = Math.max(...rows);
+    const minCol = Math.min(...cols);
+    const maxCol = Math.max(...cols);
+
+    // 创建合并组
+    const groupId = `merge_${Date.now()}`;
+    const mergeGroup = {
+        id: groupId,
+        tiles: [...slicePreviewState.selectedTiles],
+        bounds: { minRow, maxRow, minCol, maxCol }
+    };
+
+    slicePreviewState.mergeGroups.push(mergeGroup);
+
+    // 更新图块状态
+    slicePreviewState.selectedTiles.forEach(selectedTile => {
+        const tile = slicePreviewState.tiles.find(t =>
+            t.row === selectedTile.row && t.col === selectedTile.col
+        );
+        if (tile) {
+            tile.merged = true;
+            tile.mergeGroup = groupId;
+        }
+    });
+
+    slicePreviewState.selectedTiles = [];
+
+    drawSliceGrid(sliceWidth, sliceHeight,
+        Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+        Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+
+    updateStatus(`已合并 ${mergeGroup.tiles.length} 个图块`);
+}
+
+// 删除图块
+function deleteTiles(sliceWidth, sliceHeight) {
+    if (slicePreviewState.selectedTiles.length === 0) return;
+
+    // 更新图块状态
+    slicePreviewState.selectedTiles.forEach(selectedTile => {
+        const tile = slicePreviewState.tiles.find(t =>
+            t.row === selectedTile.row && t.col === selectedTile.col
+        );
+        if (tile) {
+            tile.deleted = true;
+        }
+    });
+
+    const count = slicePreviewState.selectedTiles.length;
+    slicePreviewState.selectedTiles = [];
+
+    drawSliceGrid(sliceWidth, sliceHeight,
+        Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
+        Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+
+    updateStatus(`已标记删除 ${count} 个图块`);
+}
+
+// 执行实际的切图操作
+function executeSlicing(sliceWidth, sliceHeight, rows, cols) {
+    updateStatus('正在生成切片...');
+
+    const slices = [];
+
+    // 处理合并组
+    slicePreviewState.mergeGroups.forEach(group => {
+        const width = (group.bounds.maxCol - group.bounds.minCol + 1) * sliceWidth;
+        const height = (group.bounds.maxRow - group.bounds.minRow + 1) * sliceHeight;
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        tempCtx.drawImage(
+            appState.canvas,
+            group.bounds.minCol * sliceWidth,
+            group.bounds.minRow * sliceHeight,
+            width,
+            height,
+            0,
+            0,
+            width,
+            height
+        );
+
+        slices.push({
+            canvas: tempCanvas,
+            row: group.bounds.minRow,
+            col: group.bounds.minCol,
+            index: slices.length,
+            merged: true,
+            rowSpan: group.bounds.maxRow - group.bounds.minRow + 1,
+            colSpan: group.bounds.maxCol - group.bounds.minCol + 1
+        });
+    });
+
+    // 处理未合并且未删除的单个图块
+    slicePreviewState.tiles.forEach(tile => {
+        if (!tile.merged && !tile.deleted) {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = sliceWidth;
             tempCanvas.height = sliceHeight;
             const tempCtx = tempCanvas.getContext('2d');
-            
-            // 绘制切片
+
             tempCtx.drawImage(
                 appState.canvas,
-                col * sliceWidth,
-                row * sliceHeight,
+                tile.col * sliceWidth,
+                tile.row * sliceHeight,
                 sliceWidth,
                 sliceHeight,
                 0,
@@ -308,49 +753,54 @@ function sliceImage() {
                 sliceWidth,
                 sliceHeight
             );
-            
+
             slices.push({
                 canvas: tempCanvas,
-                row: row,
-                col: col,
-                index: row * cols + col
+                row: tile.row,
+                col: tile.col,
+                index: slices.length,
+                merged: false
             });
         }
-    }
-    
+    });
+
     appState.slices = slices;
-    
-    // 显示切片预览
-    showSlicePreview(slices);
-    
-    updateStatus(`已生成 ${slices.length} 个切片`);
+
+    // 显示切片结果预览
+    showSliceResults(slices);
+
+    updateStatus(`已生成 ${slices.length} 个切片（包含合并的图块）`);
 }
 
-// 显示切片预览
-function showSlicePreview(slices) {
+// 显示切片结果
+function showSliceResults(slices) {
     // 清空预览区
     elements.sliceGrid.innerHTML = '';
-    
+
     // 创建切片预览项
     slices.forEach((slice, index) => {
         const sliceItem = document.createElement('div');
         sliceItem.className = 'slice-item';
-        
+
         const img = document.createElement('img');
         img.src = slice.canvas.toDataURL();
         img.alt = `切片 ${index + 1}`;
-        
+
         const label = document.createElement('span');
-        label.textContent = `${slice.col},${slice.row}`;
-        
+        if (slice.merged) {
+            label.textContent = `合并(${slice.col},${slice.row}) ${slice.colSpan}x${slice.rowSpan}`;
+        } else {
+            label.textContent = `${slice.col},${slice.row}`;
+        }
+
         sliceItem.appendChild(img);
         sliceItem.appendChild(label);
         elements.sliceGrid.appendChild(sliceItem);
     });
-    
+
     // 显示预览区抽屉
     updateSlicePreviewDisplay();
-    
+
     // 如果组合区域是显示的，保持显示
     if (elements.combineArea.style.display === 'block') {
         elements.combineArea.style.display = 'block';
@@ -363,26 +813,26 @@ async function saveAllSlices() {
         updateStatus('没有可保存的切片');
         return;
     }
-    
+
     try {
         updateStatus('正在保存切片...');
-        
+
         // 保存每个切片
         for (let i = 0; i < appState.slices.length; i++) {
             const slice = appState.slices[i];
             const sliceDataURL = slice.canvas.toDataURL('image/png');
-            
+
             // 使用Electron的保存对话框
             const filePath = await window.electronAPI.saveFile({
                 defaultPath: `slice_${slice.col}_${slice.row}.png`
             });
-            
+
             if (filePath) {
                 // 将DataURL转换为Buffer并保存
                 await saveDataURLToFile(sliceDataURL, filePath);
             }
         }
-        
+
         updateStatus('切片保存完成');
     } catch (error) {
         console.error('保存切片失败:', error);
@@ -397,9 +847,9 @@ function saveDataURLToFile(dataURL, filePath) {
 
 // 切换组合模式
 function toggleCombineMode() {
-    elements.combineArea.style.display = 
+    elements.combineArea.style.display =
         elements.combineArea.style.display === 'none' ? 'block' : 'none';
-    
+
     if (elements.combineArea.style.display === 'block') {
         // 隐藏切图预览
         elements.slicePreview.style.display = 'block';
@@ -436,11 +886,11 @@ function reinitElements() {
     elements.addSlicesBtn = document.getElementById('add-slices-btn');
     elements.closeMaterialsBtn = document.getElementById('close-materials-btn');
     elements.materialsDrawer = document.getElementById('materials-drawer');
-    
+
     // 切图预览元素
     elements.closeSlicePreviewBtn = document.getElementById('close-slice-preview-btn');
     elements.slicePreview = document.getElementById('slice-preview');
-    
+
     // 绑定抽屉式布局事件
     elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
@@ -451,19 +901,19 @@ function reinitElements() {
 function initCombineArea() {
     // 重新初始化元素，确保所有元素都被正确获取
     reinitElements();
-    
+
     // 初始化网格设置
     elements.gridWidth.value = appState.combineState.grid.width;
     elements.gridHeight.value = appState.combineState.grid.height;
     elements.gridCols.value = appState.combineState.grid.cols;
     elements.gridRows.value = appState.combineState.grid.rows;
-    
+
     // 渲染网格
     renderGrid();
-    
+
     // 渲染素材列表
     renderMaterialsList();
-    
+
     // 确保素材库抽屉初始状态是隐藏的
     elements.materialsDrawer.classList.remove('show');
 }
@@ -474,37 +924,37 @@ function updateGridSettings() {
     const height = parseInt(elements.gridHeight.value);
     const cols = parseInt(elements.gridCols.value);
     const rows = parseInt(elements.gridRows.value);
-    
+
     if (width <= 0 || height <= 0 || cols <= 0 || rows <= 0) {
         updateStatus('网格参数必须大于0');
         return;
     }
-    
+
     appState.combineState.grid.width = width;
     appState.combineState.grid.height = height;
     appState.combineState.grid.cols = cols;
     appState.combineState.grid.rows = rows;
-    
+
     // 重新渲染网格
     renderGrid();
-    
+
     updateStatus('网格设置已更新');
 }
 
 // 渲染网格
 function renderGrid() {
     const { width, height, cols, rows } = appState.combineState.grid;
-    
+
     // 设置画布尺寸
     elements.combineCanvas.width = cols * width;
     elements.combineCanvas.height = rows * height;
-    
+
     // 更新网格覆盖层样式
     elements.gridOverlay.style.backgroundSize = `${width}px ${height}px`;
-    
+
     // 清空并重新创建网格单元格
     elements.gridCells.innerHTML = '';
-    
+
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             const cell = document.createElement('div');
@@ -515,15 +965,15 @@ function renderGrid() {
             cell.style.top = `${row * height}px`;
             cell.dataset.col = col;
             cell.dataset.row = row;
-            
+
             elements.gridCells.appendChild(cell);
         }
     }
-    
+
     // 更新放置容器尺寸
     elements.placementContainer.style.width = `${cols * width + 20}px`;
     elements.placementContainer.style.height = `${rows * height + 20}px`;
-    
+
     // 清空画布
     const ctx = elements.combineCanvas.getContext('2d');
     ctx.clearRect(0, 0, elements.combineCanvas.width, elements.combineCanvas.height);
@@ -535,7 +985,7 @@ async function addCombineImages() {
         const filePaths = await window.electronAPI.openFiles();
         if (filePaths && filePaths.length > 0) {
             updateStatus('正在加载图片...');
-            
+
             // 加载所有选中的图片
             for (const filePath of filePaths) {
                 const img = new Image();
@@ -545,16 +995,16 @@ async function addCombineImages() {
                     img.onerror = reject;
                     img.src = filePath;
                 });
-                
+
                 appState.combineImages.push({
                     image: img,
                     path: filePath
                 });
             }
-            
+
             // 更新图片列表
             updateCombineImageList();
-            
+
             updateStatus(`已添加 ${filePaths.length} 张图片`);
         }
     } catch (error) {
@@ -566,23 +1016,23 @@ async function addCombineImages() {
 // 渲染素材列表
 function renderMaterialsList() {
     elements.materialsList.innerHTML = '';
-    
+
     appState.combineState.materials.forEach((material, index) => {
         const materialItem = document.createElement('div');
         materialItem.className = 'material-item';
         materialItem.draggable = true;
-        
+
         const img = document.createElement('img');
         img.src = material.src;
         img.alt = `素材 ${index + 1}`;
-        
+
         const fileName = document.createElement('span');
         fileName.textContent = material.name || `素材 ${index + 1}`;
-        
+
         // 添加拖拽事件
         materialItem.addEventListener('dragstart', (e) => handleDragStartMaterial(e, material));
         materialItem.addEventListener('dragend', handleDragEndMaterial);
-        
+
         materialItem.appendChild(img);
         materialItem.appendChild(fileName);
         elements.materialsList.appendChild(materialItem);
@@ -595,7 +1045,7 @@ async function addCombineImages() {
         const filePaths = await window.electronAPI.openFiles();
         if (filePaths && filePaths.length > 0) {
             updateStatus('正在加载图片...');
-            
+
             // 加载所有选中的图片
             for (const filePath of filePaths) {
                 const img = new Image();
@@ -605,7 +1055,7 @@ async function addCombineImages() {
                     img.onerror = reject;
                     img.src = filePath;
                 });
-                
+
                 // 添加到素材列表
                 appState.combineState.materials.push({
                     id: `material_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -614,10 +1064,10 @@ async function addCombineImages() {
                     originalImage: img
                 });
             }
-            
+
             // 更新素材列表
             renderMaterialsList();
-            
+
             updateStatus(`已添加 ${filePaths.length} 张图片到素材库`);
         }
     } catch (error) {
@@ -632,13 +1082,13 @@ function addSlicesToMaterials() {
         updateStatus('没有可添加的切片');
         return;
     }
-    
+
     updateStatus('正在添加切片到素材库...');
-    
+
     // 将切片添加到素材列表
     appState.slices.forEach((slice, index) => {
         const dataURL = slice.canvas.toDataURL();
-        
+
         appState.combineState.materials.push({
             id: `slice_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             src: dataURL,
@@ -646,10 +1096,10 @@ function addSlicesToMaterials() {
             canvas: slice.canvas
         });
     });
-    
+
     // 更新素材列表
     renderMaterialsList();
-    
+
     updateStatus(`已添加 ${appState.slices.length} 个切片到素材库`);
 }
 
@@ -679,7 +1129,7 @@ function handleDragEnterPlacement(e) {
 function handleDragLeavePlacement(e) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
-    
+
     // 移除网格高亮
     if (appState.combineState.highlightCell) {
         const cell = elements.gridCells.querySelector(`[data-col="${appState.combineState.highlightCell.col}"][data-row="${appState.combineState.highlightCell.row}"]`);
@@ -694,16 +1144,16 @@ function handleDragLeavePlacement(e) {
 function handleDragOverPlacement(e) {
     e.preventDefault();
     e.currentTarget.classList.add('drag-over');
-    
+
     // 获取鼠标位置并高亮对应网格
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     const { width, height } = appState.combineState.grid;
     const col = Math.floor(x / width);
     const row = Math.floor(y / height);
-    
+
     // 确保在网格范围内
     if (col >= 0 && col < appState.combineState.grid.cols && row >= 0 && row < appState.combineState.grid.rows) {
         // 移除之前的高亮
@@ -713,7 +1163,7 @@ function handleDragOverPlacement(e) {
                 prevCell.classList.remove('highlighted');
             }
         }
-        
+
         // 高亮当前网格
         const cell = elements.gridCells.querySelector(`[data-col="${col}"][data-row="${row}"]`);
         if (cell) {
@@ -727,27 +1177,27 @@ function handleDragOverPlacement(e) {
 function handleDropPlacement(e) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
-    
+
     // 获取拖拽的数据
     const materialData = e.dataTransfer.getData('text/plain');
     if (!materialData) return;
-    
+
     const material = JSON.parse(materialData);
-    
+
     // 获取放置位置
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     const { width, height } = appState.combineState.grid;
     const col = Math.floor(x / width);
     const row = Math.floor(y / height);
-    
+
     // 确保在网格范围内
     if (col >= 0 && col < appState.combineState.grid.cols && row >= 0 && row < appState.combineState.grid.rows) {
         // 放置图片到网格
         placeImageOnGrid(material, col, row);
-        
+
         // 移除高亮
         const cell = elements.gridCells.querySelector(`[data-col="${col}"][data-row="${row}"]`);
         if (cell) {
@@ -762,7 +1212,7 @@ function placeImageOnGrid(material, col, row) {
     const { width: gridWidth, height: gridHeight } = appState.combineState.grid;
     const x = col * gridWidth;
     const y = row * gridHeight;
-    
+
     // 创建放置的图片对象
     const placedImage = {
         id: `placed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -775,27 +1225,27 @@ function placeImageOnGrid(material, col, row) {
         originalWidth: 0,
         originalHeight: 0
     };
-    
+
     // 添加到已放置图片列表
     appState.combineState.placedImages.push(placedImage);
-    
+
     // 渲染放置的图片
     renderPlacedImage(placedImage);
-    
+
     updateStatus('图片已放置到网格');
 }
 
 // 渲染放置的图片
 function renderPlacedImage(placedImage) {
     const ctx = elements.combineCanvas.getContext('2d');
-    
+
     // 创建图片对象
     const img = new Image();
     img.onload = () => {
         // 使用原始尺寸绘制图片
         placedImage.originalWidth = img.width;
         placedImage.originalHeight = img.height;
-        
+
         // 绘制图片，保持原始尺寸
         ctx.drawImage(img, placedImage.x, placedImage.y);
     };
@@ -806,11 +1256,11 @@ function renderPlacedImage(placedImage) {
 function clearGrid() {
     // 清空已放置图片列表
     appState.combineState.placedImages = [];
-    
+
     // 清空画布
     const ctx = elements.combineCanvas.getContext('2d');
     ctx.clearRect(0, 0, elements.combineCanvas.width, elements.combineCanvas.height);
-    
+
     updateStatus('网格已清空');
 }
 
@@ -821,18 +1271,18 @@ async function saveCombinedImage() {
         updateStatus('没有可保存的组合图片');
         return;
     }
-    
+
     try {
         updateStatus('正在保存组合图片...');
-        
+
         // 获取图片数据URL
         const dataURL = canvas.toDataURL('image/png');
-        
+
         // 使用Electron的保存对话框
         const filePath = await window.electronAPI.saveFile({
             defaultPath: 'combined_image.png'
         });
-        
+
         if (filePath) {
             // 将DataURL保存到文件
             await saveDataURLToFile(dataURL, filePath);
@@ -850,18 +1300,18 @@ async function exportPNG() {
         updateStatus('没有可导出的图片');
         return;
     }
-    
+
     try {
         updateStatus('正在导出PNG...');
-        
+
         // 获取图片数据URL
         const dataURL = appState.canvas.toDataURL('image/png');
-        
+
         // 使用Electron的保存对话框
         const filePath = await window.electronAPI.saveFile({
             defaultPath: 'edited_image.png'
         });
-        
+
         if (filePath) {
             // 将DataURL转换为Buffer并保存
             await saveDataURLToFile(dataURL, filePath);

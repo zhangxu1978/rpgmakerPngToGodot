@@ -201,39 +201,41 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 15px;
-    background-color: #f5f5f5;
-    border-radius: 4px 4px 0 0;
+    padding: 15px 20px;
+    border-bottom: 2px solid #444;
+    margin-bottom: 20px;
+    background-color: #1a1a1a;
+    border-radius: 8px;
 }
 
 .drawer-header h3 {
     margin: 0;
-    font-size: 16px;
-    color: #333;
+    font-size: 20px;
+    color: #fff;
+    font-weight: bold;
 }
 
 /* 关闭按钮样式 */
 .close-btn {
-    background-color: transparent;
-    color: #666;
+    background-color: #f44336;
+    color: white;
     border: none;
-    font-size: 20px;
+    font-size: 24px;
     cursor: pointer;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
     padding: 0;
+    font-weight: bold;
 }
 
 .close-btn:hover {
-    background-color: #eee;
-    color: #333;
+    background-color: #da190b;
+    transform: scale(1.1);
 }
 
 .slice-preview h3 {
@@ -453,7 +455,7 @@ body {
     border-radius: 4px;
     position: relative;
     overflow: auto;
-    background-image: 
+    background-image:
         linear-gradient(#eee 1px, transparent 1px),
         linear-gradient(90deg, #eee 1px, transparent 1px);
     background-size: 10px 10px;
@@ -467,7 +469,7 @@ body {
     right: 0;
     bottom: 0;
     pointer-events: none;
-    background-image: 
+    background-image:
         linear-gradient(rgba(0, 0, 255, 0.1) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 0, 255, 0.1) 1px, transparent 1px);
     z-index: 1;
@@ -574,7 +576,7 @@ body {
     .main-content {
         flex-direction: column;
     }
-    
+
     .slice-preview,
     .combine-area {
         width: 100%;
@@ -605,47 +607,57 @@ body {
 .slice-preview-container {
     position: relative;
     overflow: auto;
-    max-height: 70vh;
+    max-height: calc(100vh - 200px);
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding: 10px;
-    background-color: #f5f5f5;
-    border-radius: 4px;
+    padding: 20px;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    border: 2px solid #333;
 }
 
 .slice-preview-container canvas {
     display: block;
     cursor: crosshair;
-    border: 2px solid #333;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border: 3px solid #4CAF50;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    background-color: #fff;
 }
 
 /* 切图预览操作按钮区 */
 .slice-preview-actions {
-    margin-top: 15px;
+    margin-top: 20px;
     display: flex;
-    gap: 10px;
+    gap: 15px;
     justify-content: center;
+}
+
+.slice-preview-actions .tool-btn {
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: bold;
 }
 
 /* 图块操作菜单样式 */
 .tile-action-menu {
     position: fixed;
     background: #2a2a2a;
-    border: 2px solid #444;
-    border-radius: 4px;
-    padding: 10px;
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 12px;
     z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    min-width: 120px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+    min-width: 140px;
 }
 
 .tile-action-menu .tool-btn {
     display: block;
     width: 100%;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     text-align: center;
+    padding: 10px 20px;
+    font-size: 15px;
 }
 
 .tile-action-menu .tool-btn:last-child {
@@ -654,13 +666,14 @@ body {
 
 /* 切图预览说明文字样式 */
 .slice-preview-drawer .instruction-div {
-    margin: 10px 0;
-    padding: 10px;
-    background: #2a2a2a;
-    border-radius: 4px;
-    font-size: 14px;
+    margin: 0 0 20px 0;
+    padding: 15px 20px;
+    background: #1a1a1a;
+    border-radius: 8px;
+    font-size: 15px;
     color: #e0e0e0;
-    line-height: 1.6;
+    line-height: 1.8;
+    border: 2px solid #333;
 }
 
 .slice-preview-drawer .instruction-div strong {
@@ -688,27 +701,28 @@ body {
     overflow: hidden;
 }
 
-/* 切图预览抽屉样式 */
+/* 切图预览抽屉样式 - 全屏模式 */
 .slice-preview-drawer {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 400px;
-    max-width: 90vw;
-    height: calc(100% - 40px);
-    background-color: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    padding: 20px;
     overflow-y: auto;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 100;
+    box-shadow: none;
+    z-index: 1000;
     transition: all 0.3s ease;
-    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
     display: flex;
     flex-direction: column;
 }
 
 .slice-preview-drawer.show {
-    transform: translateX(0);
+    opacity: 1;
+    pointer-events: all;
 }

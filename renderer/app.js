@@ -111,7 +111,12 @@ function bindEventListeners() {
     // 抽屉式布局事件
     elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
-    elements.closeSlicePreviewBtn.addEventListener('click', closeSlicePreview);
+
+    // 切图预览关闭按钮事件
+    if (elements.closeSlicePreviewBtn) {
+        elements.closeSlicePreviewBtn.addEventListener('click', closeSlicePreview);
+    }
+
 
     // 容差滑块事件
     elements.toleranceSlider.addEventListener('input', (e) => {
@@ -369,7 +374,7 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
 
     // 添加说明文字
     const instructionDiv = document.createElement('div');
-    instructionDiv.style.cssText = 'margin: 10px 0; padding: 10px; background: #2a2a2a; border-radius: 4px; font-size: 14px;';
+    instructionDiv.className = 'instruction-div';
     instructionDiv.innerHTML = `
         <strong>操作说明：</strong><br>
         • 拖动鼠标选择连续的图块<br>
@@ -806,6 +811,21 @@ function showSliceResults(slices) {
         elements.combineArea.style.display = 'block';
     }
 }
+
+// 关闭切图预览
+function closeSlicePreview() {
+    elements.slicePreview.classList.remove('show');
+    elements.slicePreview.style.display = 'none';
+
+    // 清空预览状态
+    slicePreviewState.tiles = [];
+    slicePreviewState.mergeGroups = [];
+    slicePreviewState.selectedTiles = [];
+    slicePreviewState.isSelecting = false;
+
+    updateStatus('已关闭切图预览');
+}
+
 
 // 保存所有切片
 async function saveAllSlices() {

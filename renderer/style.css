@@ -158,9 +158,9 @@ body {
 
 /* 素材库样式 - 抽屉式 */
 .materials-panel-drawer {
-    position: absolute;
+    position: fixed;
     top: 20px;
-    right: 20px;
+    right: 0;
     width: 300px;
     height: calc(100% - 40px);
     background-color: white;
@@ -169,14 +169,27 @@ body {
     overflow-y: auto;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 100;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease;
     transform: translateX(100%);
     display: flex;
     flex-direction: column;
+    cursor: default;
+}
+
+/* 素材库头部拖动样式 */
+.materials-drawer-header {
+    cursor: move;
+    user-select: none;
 }
 
 .materials-panel-drawer.show {
     transform: translateX(0);
+}
+
+/* 拖动时的样式 */
+.materials-panel-drawer.dragging {
+    opacity: 0.8;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 /* 素材库抽屉头部样式 */

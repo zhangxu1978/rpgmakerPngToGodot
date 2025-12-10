@@ -56,6 +56,7 @@ const elements = {
     clearMaterialsBtn: document.getElementById('clear-materials-btn'),
     closeMaterialsBtn: document.getElementById('close-materials-btn'),
     materialsDrawer: document.getElementById('materials-drawer'),
+    materialsDrawerHeader: document.querySelector('.materials-drawer-header'),
     // 放置区元素
     placementContainer: document.querySelector('.placement-container'),
     gridOverlay: document.getElementById('grid-overlay'),
@@ -63,6 +64,15 @@ const elements = {
     // 切图预览元素
     slicePreview: document.getElementById('slice-preview'),
     statusText: document.getElementById('status-text')
+};
+
+// 拖拽状态
+const dragState = {
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0
 };
 
 // 初始化应用
@@ -112,6 +122,13 @@ function bindEventListeners() {
     // 抽屉式布局事件
     elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
+    
+    // 素材库拖动功能
+    if (elements.materialsDrawerHeader) {
+        elements.materialsDrawerHeader.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+    }
 
 
     // 容差滑块事件
@@ -152,10 +169,72 @@ function clearMaterials() {
         appState.combineState.materials = [];
         
         // 清空素材列表显示
-        document.getElementById('materials-list').innerHTML = '';
+        elements.materialsList.innerHTML = '';
         
         // 更新状态栏
         updateStatus('素材库已清空');
+    }
+}
+
+// 开始拖动素材库
+function startDrag(e) {
+    // 只在左键点击时触发
+    if (e.button !== 0) return;
+    
+    const materialsDrawer = elements.materialsDrawer;
+    
+    // 确保素材库是打开的
+    if (!materialsDrawer.classList.contains('show')) return;
+    
+    dragState.isDragging = true;
+    dragState.startX = e.clientX;
+    dragState.startY = e.clientY;
+    
+    // 获取当前元素的位置
+    const rect = materialsDrawer.getBoundingClientRect();
+    dragState.offsetX = e.clientX - rect.left;
+    dragState.offsetY = e.clientY - rect.top;
+    
+    // 添加拖动样式
+    materialsDrawer.classList.add('dragging');
+    
+    // 防止文本选择
+    e.preventDefault();
+}
+
+// 拖动素材库
+function drag(e) {
+    if (!dragState.isDragging) return;
+    
+    const materialsDrawer = elements.materialsDrawer;
+    
+    // 计算新位置
+    let newX = e.clientX - dragState.offsetX;
+    let newY = e.clientY - dragState.offsetY;
+    
+    // 限制拖动范围，确保面板不会移出屏幕
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const panelWidth = materialsDrawer.offsetWidth;
+    const panelHeight = materialsDrawer.offsetHeight;
+    
+    // 限制X轴位置（左右边界）
+    newX = Math.max(0, Math.min(newX, windowWidth - panelWidth));
+    
+    // 限制Y轴位置（上下边界）
+    newY = Math.max(0, Math.min(newY, windowHeight - panelHeight));
+    
+    // 设置新位置
+    materialsDrawer.style.left = `${newX}px`;
+    materialsDrawer.style.top = `${newY}px`;
+    materialsDrawer.style.right = 'auto'; // 取消right定位，改用left定位
+}
+
+// 停止拖动素材库
+function stopDrag() {
+    if (dragState.isDragging) {
+        elements.materialsDrawer.classList.remove('dragging');
+        dragState.isDragging = false;
     }
 }
 

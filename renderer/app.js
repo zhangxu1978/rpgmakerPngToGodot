@@ -53,6 +53,7 @@ const elements = {
     materialsList: document.getElementById('materials-list'),
     toggleMaterialsBtn: document.getElementById('toggle-materials-btn'),
     addSlicesBtn: document.getElementById('add-slices-btn'),
+    clearMaterialsBtn: document.getElementById('clear-materials-btn'),
     closeMaterialsBtn: document.getElementById('close-materials-btn'),
     materialsDrawer: document.getElementById('materials-drawer'),
     // 放置区元素
@@ -99,6 +100,8 @@ function bindEventListeners() {
 
     // 素材添加事件
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
+    // 清空素材库事件
+    elements.clearMaterialsBtn.addEventListener('click', clearMaterials);
 
     // 拖拽事件
     elements.placementContainer.addEventListener('dragover', handleDragOverPlacement);
@@ -139,6 +142,21 @@ function updateToleranceValue() {
 // 更新状态栏
 function updateStatus(text) {
     elements.statusText.textContent = text;
+}
+
+// 清空素材库
+function clearMaterials() {
+    // 确认是否清空
+    if (confirm('确定要清空所有素材吗？此操作不可撤销。')) {
+        // 清空素材数组
+        appState.combineState.materials = [];
+        
+        // 清空素材列表显示
+        document.getElementById('materials-list').innerHTML = '';
+        
+        // 更新状态栏
+        updateStatus('素材库已清空');
+    }
 }
 
 // 显示/隐藏占位符
@@ -1125,6 +1143,7 @@ async function addCombineImages() {
 }
 
 // 渲染素材列表
+// 渲染素材列表
 function renderMaterialsList() {
     elements.materialsList.innerHTML = '';
 
@@ -1132,6 +1151,7 @@ function renderMaterialsList() {
         const materialItem = document.createElement('div');
         materialItem.className = 'material-item';
         materialItem.draggable = true;
+        materialItem.title = '右键点击移除此素材'; // 添加提示
 
         const img = document.createElement('img');
         img.src = material.src;
@@ -1143,6 +1163,27 @@ function renderMaterialsList() {
         // 添加拖拽事件
         materialItem.addEventListener('dragstart', (e) => handleDragStartMaterial(e, material));
         materialItem.addEventListener('dragend', handleDragEndMaterial);
+
+        // 右键点击移除
+        materialItem.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // 根据ID查找（如果存在），否则根据索引
+            let idx = -1;
+            if (material.id) {
+                idx = appState.combineState.materials.findIndex(m => m.id === material.id);
+            } else {
+                // 如果没有ID（旧数据），回退到某种匹配方式或直接使用当前闭包index
+                // 注意：如果数组在渲染后变动了，闭包index可能不准，但这里我们是re-render triggering，所以通常是准的
+                // 最安全的是直接比对对象引用
+                idx = appState.combineState.materials.indexOf(material);
+            }
+
+            if (idx > -1) {
+                appState.combineState.materials.splice(idx, 1);
+                renderMaterialsList();
+                updateStatus('素材已移除');
+            }
+        });
 
         materialItem.appendChild(img);
         materialItem.appendChild(fileName);

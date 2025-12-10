@@ -190,6 +190,13 @@ body {
     border-radius: 4px 4px 0 0;
 }
 
+/* 素材库抽屉头部操作按钮容器 */
+.materials-drawer-header .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .materials-drawer-header h4 {
     margin: 0;
     font-size: 16px;
@@ -390,7 +397,26 @@ body {
     border-radius: 3px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
+}
+
+/* 清空素材库按钮样式 */
+#clear-materials-btn {
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 12px;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+#clear-materials-btn:hover {
+    background-color: #f57c00;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .small-btn:hover {
@@ -471,7 +497,7 @@ body {
     background-image:
         linear-gradient(#eee 1px, transparent 1px),
         linear-gradient(90deg, #eee 1px, transparent 1px);
-    background-size: 10px 10px;
+    background-size: 16px 16px;
 }
 
 /* 网格覆盖层样式 */

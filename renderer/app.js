@@ -112,11 +112,6 @@ function bindEventListeners() {
     elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
     elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
 
-    // 切图预览关闭按钮事件
-    if (elements.closeSlicePreviewBtn) {
-        elements.closeSlicePreviewBtn.addEventListener('click', closeSlicePreview);
-    }
-
 
     // 容差滑块事件
     elements.toleranceSlider.addEventListener('input', (e) => {
@@ -345,8 +340,9 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
     instructionDiv.className = 'instruction-div';
     instructionDiv.innerHTML = `
         <strong>操作说明：</strong><br>
-        • 拖动鼠标选择连续的图块
-        • 松开鼠标后选择操作：<strong>合并</strong>（将选中图块合并为一个）、<strong>删除</strong>（不输出这些图块）、<strong>取消</strong>（取消选择）<br>
+        • <strong>左键拖动</strong>：选择连续的图块进行合并
+        • <strong>右键点击</strong>：删除/恢复单个图块（再次右键可恢复）
+        • 松开左键后选择：<strong>合并</strong>（将选中图块合并为一个）、<strong>删除</strong>（批量删除）、<strong>取消</strong>（取消选择）<br>
         • 绿色边框：已合并的图块组 | 红色半透明：已删除的图块 | 蓝色半透明：当前选择的图块
     `;
 
@@ -388,10 +384,17 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
     drawSliceGrid(sliceWidth, sliceHeight, rows, cols);
 
     // 添加鼠标事件
-    previewCanvas.addEventListener('mousedown', (e) => handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols));
+    previewCanvas.addEventListener('mousedown', (e) => handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols, rows));
     previewCanvas.addEventListener('mousemove', (e) => handleSlicePreviewMouseMove(e, sliceWidth, sliceHeight, cols));
     previewCanvas.addEventListener('mouseup', (e) => handleSlicePreviewMouseUp(e, sliceWidth, sliceHeight, cols));
     previewCanvas.addEventListener('mouseleave', () => handleSlicePreviewMouseLeave());
+
+    // 禁用右键菜单，使用右键删除功能
+    previewCanvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    });
+
 
     previewContainer.appendChild(previewCanvas);
 
@@ -499,7 +502,7 @@ function drawSliceGrid(sliceWidth, sliceHeight, rows, cols) {
 }
 
 // 鼠标按下事件
-function handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols) {
+function handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols, rows) {
     const rect = slicePreviewState.previewCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -507,14 +510,41 @@ function handleSlicePreviewMouseDown(e, sliceWidth, sliceHeight, cols) {
     const col = Math.floor(x / sliceWidth);
     const row = Math.floor(y / sliceHeight);
 
-    slicePreviewState.isSelecting = true;
-    slicePreviewState.selectionStart = { row, col };
-    slicePreviewState.selectionCurrent = { row, col };
-    slicePreviewState.selectedTiles = [{ row, col }];
+    // 检查是否在有效范围内
+    if (col < 0 || col >= cols || row < 0 || row >= rows) {
+        return;
+    }
 
-    drawSliceGrid(sliceWidth, sliceHeight,
-        Math.ceil(slicePreviewState.previewCanvas.height / sliceHeight),
-        Math.ceil(slicePreviewState.previewCanvas.width / sliceWidth));
+    // 右键点击 - 直接删除单个图块
+    if (e.button === 2) {
+        const tile = slicePreviewState.tiles.find(t =>
+            t.row === row && t.col === col
+        );
+
+        if (tile) {
+            // 切换删除状态
+            tile.deleted = !tile.deleted;
+
+            drawSliceGrid(sliceWidth, sliceHeight, rows, cols);
+
+            if (tile.deleted) {
+                updateStatus(`已删除图块 (${col}, ${row})`);
+            } else {
+                updateStatus(`已恢复图块 (${col}, ${row})`);
+            }
+        }
+        return;
+    }
+
+    // 左键点击 - 开始拖动选择
+    if (e.button === 0) {
+        slicePreviewState.isSelecting = true;
+        slicePreviewState.selectionStart = { row, col };
+        slicePreviewState.selectionCurrent = { row, col };
+        slicePreviewState.selectedTiles = [{ row, col }];
+
+        drawSliceGrid(sliceWidth, sliceHeight, rows, cols);
+    }
 }
 
 // 鼠标移动事件

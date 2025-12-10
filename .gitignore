@@ -1,3 +1,4 @@
 *.cmd
 /.trae/
 /node_modules/
+*.png

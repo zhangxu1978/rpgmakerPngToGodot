@@ -245,12 +245,25 @@ body {
 }
 
 .slice-grid {
+    /* 默认为全屏布局（预览模式） */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* 当显示切片结果时使用网格布局 */
+.slice-grid.results-mode {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 10px;
     margin-bottom: 15px;
     max-height: 400px;
     overflow-y: auto;
+    padding: 10px;
 }
 
 .slice-item {

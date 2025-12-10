@@ -327,16 +327,57 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
     // 清空预览区
     elements.sliceGrid.innerHTML = '';
 
-    // 创建预览画布容器
+    // 移除结果模式类，使用全屏预览布局
+    elements.sliceGrid.classList.remove('results-mode');
+
+    // 创建主容器（垂直布局）
+    const mainContainer = document.createElement('div');
+    mainContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+        gap: 15px;
+    `;
+
+    // 添加说明文字（固定在顶部）
+    const instructionDiv = document.createElement('div');
+    instructionDiv.className = 'instruction-div';
+    instructionDiv.innerHTML = `
+        <strong>操作说明：</strong><br>
+        • 拖动鼠标选择连续的图块
+        • 松开鼠标后选择操作：<strong>合并</strong>（将选中图块合并为一个）、<strong>删除</strong>（不输出这些图块）、<strong>取消</strong>（取消选择）<br>
+        • 绿色边框：已合并的图块组 | 红色半透明：已删除的图块 | 蓝色半透明：当前选择的图块
+    `;
+
+    // 创建预览画布容器（占据剩余空间，居中显示）
     const previewContainer = document.createElement('div');
-    previewContainer.className = 'slice-preview-container';
-    previewContainer.style.cssText = 'position: relative; overflow: auto; max-height: 70vh;';
+    previewContainer.style.cssText = `
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: auto;
+        padding: 20px;
+        background-color: #1a1a1a;
+        border-radius: 8px;
+        border: 2px solid #333;
+    `;
 
     // 创建预览画布
     const previewCanvas = document.createElement('canvas');
     previewCanvas.width = appState.canvas.width;
     previewCanvas.height = appState.canvas.height;
-    previewCanvas.style.cssText = 'display: block; cursor: crosshair; border: 2px solid #333;';
+    previewCanvas.style.cssText = `
+        display: block;
+        cursor: crosshair;
+        border: 3px solid #4CAF50;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        background-color: #fff;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    `;
     slicePreviewState.previewCanvas = previewCanvas;
     slicePreviewState.previewCtx = previewCanvas.getContext('2d');
 
@@ -354,39 +395,37 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
 
     previewContainer.appendChild(previewCanvas);
 
-    // 创建操作按钮区
+    // 创建操作按钮区（固定在底部）
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'slice-preview-actions';
-    actionsDiv.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
+    actionsDiv.style.cssText = `
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        padding: 10px 0;
+    `;
 
     const confirmBtn = document.createElement('button');
     confirmBtn.textContent = '确认切图';
     confirmBtn.className = 'tool-btn';
+    confirmBtn.style.cssText = 'padding: 12px 32px; font-size: 16px; font-weight: bold;';
     confirmBtn.onclick = () => executeSlicing(sliceWidth, sliceHeight, rows, cols);
 
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = '取消';
     cancelBtn.className = 'tool-btn';
+    cancelBtn.style.cssText = 'padding: 12px 32px; font-size: 16px; font-weight: bold;';
     cancelBtn.onclick = closeSlicePreview;
 
     actionsDiv.appendChild(confirmBtn);
     actionsDiv.appendChild(cancelBtn);
 
-    // 添加说明文字
-    const instructionDiv = document.createElement('div');
-    instructionDiv.className = 'instruction-div';
-    instructionDiv.innerHTML = `
-        <strong>操作说明：</strong><br>
-        • 拖动鼠标选择连续的图块<br>
-        • 松开鼠标后选择操作：<strong>合并</strong>（将选中图块合并为一个）、<strong>删除</strong>（不输出这些图块）、<strong>取消</strong>（取消选择）<br>
-        • 绿色边框：已合并的图块组<br>
-        • 红色半透明：已删除的图块<br>
-        • 蓝色半透明：当前选择的图块
-    `;
+    // 组装布局
+    mainContainer.appendChild(instructionDiv);
+    mainContainer.appendChild(previewContainer);
+    mainContainer.appendChild(actionsDiv);
 
-    elements.sliceGrid.appendChild(instructionDiv);
-    elements.sliceGrid.appendChild(previewContainer);
-    elements.sliceGrid.appendChild(actionsDiv);
+    elements.sliceGrid.appendChild(mainContainer);
 
     // 显示预览区抽屉
     updateSlicePreviewDisplay();
@@ -781,6 +820,9 @@ function executeSlicing(sliceWidth, sliceHeight, rows, cols) {
 function showSliceResults(slices) {
     // 清空预览区
     elements.sliceGrid.innerHTML = '';
+
+    // 切换到结果模式（网格布局）
+    elements.sliceGrid.classList.add('results-mode');
 
     // 创建切片预览项
     slices.forEach((slice, index) => {

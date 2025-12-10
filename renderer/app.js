@@ -52,7 +52,6 @@ const elements = {
     // 素材面板元素
     materialsList: document.getElementById('materials-list'),
     toggleMaterialsBtn: document.getElementById('toggle-materials-btn'),
-    addMaterialsBtn: document.getElementById('add-materials-btn'),
     addSlicesBtn: document.getElementById('add-slices-btn'),
     closeMaterialsBtn: document.getElementById('close-materials-btn'),
     materialsDrawer: document.getElementById('materials-drawer'),
@@ -61,7 +60,6 @@ const elements = {
     gridOverlay: document.getElementById('grid-overlay'),
     gridCells: document.getElementById('grid-cells'),
     // 切图预览元素
-    closeSlicePreviewBtn: document.getElementById('close-slice-preview-btn'),
     slicePreview: document.getElementById('slice-preview'),
     statusText: document.getElementById('status-text')
 };
@@ -100,7 +98,6 @@ function bindEventListeners() {
     elements.updateGridBtn.addEventListener('click', updateGridSettings);
 
     // 素材添加事件
-    elements.addMaterialsBtn.addEventListener('click', addCombineImages);
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
 
     // 拖拽事件
@@ -991,11 +988,6 @@ function toggleMaterialsDrawer() {
     updateStatus(elements.materialsDrawer.classList.contains('show') ? '素材库已打开' : '素材库已关闭');
 }
 
-// 关闭切图预览抽屉
-function closeSlicePreview() {
-    elements.slicePreview.classList.remove('show');
-    updateStatus('切图预览已关闭');
-}
 
 // 更新切图预览显示
 function updateSlicePreviewDisplay() {
@@ -1008,19 +1000,12 @@ function reinitElements() {
     // 素材面板元素
     elements.materialsList = document.getElementById('materials-list');
     elements.toggleMaterialsBtn = document.getElementById('toggle-materials-btn');
-    elements.addMaterialsBtn = document.getElementById('add-materials-btn');
     elements.addSlicesBtn = document.getElementById('add-slices-btn');
     elements.closeMaterialsBtn = document.getElementById('close-materials-btn');
     elements.materialsDrawer = document.getElementById('materials-drawer');
 
     // 切图预览元素
-    elements.closeSlicePreviewBtn = document.getElementById('close-slice-preview-btn');
     elements.slicePreview = document.getElementById('slice-preview');
-
-    // 绑定抽屉式布局事件
-    elements.toggleMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
-    elements.closeMaterialsBtn.addEventListener('click', toggleMaterialsDrawer);
-    elements.closeSlicePreviewBtn.addEventListener('click', closeSlicePreview);
 }
 
 // 初始化组合区域
@@ -1204,6 +1189,7 @@ async function addCombineImages() {
 
 // 将切片添加到素材库
 function addSlicesToMaterials() {
+    updateStatus('添加开始');
     if (appState.slices.length === 0) {
         updateStatus('没有可添加的切片');
         return;

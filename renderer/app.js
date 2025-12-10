@@ -1,6 +1,7 @@
 // 应用全局状态
 const appState = {
     currentImage: null,
+    currentFilePath: null, // 当前打开的文件路径
     canvas: null,
     ctx: null,
     slices: [],
@@ -168,6 +169,7 @@ function loadImage(filePath) {
         img.crossOrigin = 'anonymous';
         img.onload = () => {
             appState.currentImage = img;
+            appState.currentFilePath = filePath; // 保存文件路径
             drawImageToCanvas(img);
             togglePlaceholder(false);
             updateStatus(`已打开图片: ${filePath.split('/').pop()}`);
@@ -181,6 +183,7 @@ function loadImage(filePath) {
         img.src = filePath;
     });
 }
+
 
 // 将图片绘制到画布
 function drawImageToCanvas(img) {
@@ -854,6 +857,24 @@ function showSliceResults(slices) {
     // 切换到结果模式（网格布局）
     elements.sliceGrid.classList.add('results-mode');
 
+    // 创建返回按钮容器
+    const headerDiv = document.createElement('div');
+    headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #1a1a1a; border-radius: 8px;';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = `已生成 ${slices.length} 个切片`;
+    titleSpan.style.cssText = 'color: #fff; font-size: 16px; font-weight: bold;';
+
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '← 返回主界面';
+    backBtn.className = 'tool-btn';
+    backBtn.style.cssText = 'padding: 8px 16px; font-size: 14px;';
+    backBtn.onclick = closeSlicePreview;
+
+    headerDiv.appendChild(titleSpan);
+    headerDiv.appendChild(backBtn);
+    elements.sliceGrid.appendChild(headerDiv);
+
     // 创建切片预览项
     slices.forEach((slice, index) => {
         const sliceItem = document.createElement('div');
@@ -906,26 +927,39 @@ async function saveAllSlices() {
         return;
     }
 
+    if (!appState.currentFilePath) {
+        updateStatus('无法获取源文件路径');
+        return;
+    }
+
     try {
         updateStatus('正在保存切片...');
 
-        // 保存每个切片
-        for (let i = 0; i < appState.slices.length; i++) {
-            const slice = appState.slices[i];
-            const sliceDataURL = slice.canvas.toDataURL('image/png');
-
-            // 使用Electron的保存对话框
-            const filePath = await window.electronAPI.saveFile({
-                defaultPath: `slice_${slice.col}_${slice.row}.png`
-            });
-
-            if (filePath) {
-                // 将DataURL转换为Buffer并保存
-                await saveDataURLToFile(sliceDataURL, filePath);
+        // 准备切片数据
+        const slicesData = appState.slices.map((slice, index) => {
+            let fileName;
+            if (slice.merged) {
+                // 合并的图块：文件名包含尺寸信息
+                fileName = `slice_merged_${slice.col}_${slice.row}_${slice.colSpan}x${slice.rowSpan}.png`;
+            } else {
+                // 普通图块
+                fileName = `slice_${slice.col}_${slice.row}.png`;
             }
-        }
 
-        updateStatus('切片保存完成');
+            return {
+                dataURL: slice.canvas.toDataURL('image/png'),
+                fileName: fileName
+            };
+        });
+
+        // 调用批量保存API
+        const result = await window.electronAPI.saveSlices(appState.currentFilePath, slicesData);
+
+        if (result.success) {
+            updateStatus(`已保存 ${result.savedCount} 个切片到: ${result.outputDir}`);
+        } else {
+            updateStatus(`保存失败: ${result.error}`);
+        }
     } catch (error) {
         console.error('保存切片失败:', error);
         updateStatus('保存切片失败');

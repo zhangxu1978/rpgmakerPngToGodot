@@ -7,14 +7,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
   saveFile: (options) => ipcRenderer.invoke('dialog:saveFile'),
   saveDataURL: (filePath, dataURL) => ipcRenderer.invoke('fs:saveDataURL', filePath, dataURL),
-  
+  saveSlices: (sourceFilePath, slices) => ipcRenderer.invoke('fs:saveSlices', sourceFilePath, slices),
+
   // 菜单事件监听
   onMenuOpenFile: (callback) => ipcRenderer.on('menu:open-file', callback),
   onMenuExportPng: (callback) => ipcRenderer.on('menu:export-png', callback),
   onMenuRemoveBackground: (callback) => ipcRenderer.on('menu:remove-background', callback),
   onMenuSliceImage: (callback) => ipcRenderer.on('menu:slice-image', callback),
   onMenuCombineImages: (callback) => ipcRenderer.on('menu:combine-images', callback),
-  
+
   // 移除事件监听
   removeAllListeners: () => {
     ipcRenderer.removeAllListeners('menu:open-file');

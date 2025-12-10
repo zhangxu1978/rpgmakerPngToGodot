@@ -151,3 +151,46 @@ ipcMain.handle('fs:saveDataURL', async (event, filePath, dataURL) => {
     return false;
   }
 });
+
+// 处理批量保存切片
+ipcMain.handle('fs:saveSlices', async (event, sourceFilePath, slices) => {
+  try {
+    // 获取源文件的目录和文件名（不含扩展名）
+    const sourceDir = path.dirname(sourceFilePath);
+    const sourceFileName = path.basename(sourceFilePath, path.extname(sourceFilePath));
+
+    // 创建输出目录：源文件同目录下的 "文件名_slices" 文件夹
+    const outputDir = path.join(sourceDir, `${sourceFileName}_slices`);
+
+    // 如果目录不存在，创建它
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 保存每个切片
+    let savedCount = 0;
+    for (const slice of slices) {
+      const { dataURL, fileName } = slice;
+      const filePath = path.join(outputDir, fileName);
+
+      // 移除DataURL前缀
+      const base64Data = dataURL.replace(/^data:image\/png;base64,/, '');
+      // 将base64转换为Buffer并保存
+      const buffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      savedCount++;
+    }
+
+    return {
+      success: true,
+      outputDir: outputDir,
+      savedCount: savedCount
+    };
+  } catch (error) {
+    console.error('Failed to save slices:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});

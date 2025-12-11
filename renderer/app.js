@@ -953,7 +953,7 @@ function showSliceResults(slices) {
 
     // 创建返回按钮容器
     const headerDiv = document.createElement('div');
-    headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #1a1a1a; border-radius: 8px;';
+    headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #1a1a1a; border-radius: 8px; grid-column: 1 / -1;';
 
     const titleSpan = document.createElement('span');
     titleSpan.textContent = `已生成 ${slices.length} 个切片`;
@@ -961,7 +961,7 @@ function showSliceResults(slices) {
 
     const backBtn = document.createElement('button');
     backBtn.textContent = '← 返回主界面';
-    backBtn.className = 'tool-btn';
+    backBtn.className = 'save-btn';
     backBtn.style.cssText = 'padding: 8px 16px; font-size: 14px;';
     backBtn.onclick = closeSlicePreview;
 
@@ -1149,6 +1149,42 @@ function updateGridSettings() {
     updateStatus('网格设置已更新');
 }
 
+// 清除指定位置的图片
+function clearCell(col, row) {
+    const { width: gridWidth, height: gridHeight } = appState.combineState.grid;
+    
+    // 查找该位置的所有图片
+    const imagesToRemove = appState.combineState.placedImages.filter(img => 
+        img.x >= col * gridWidth && 
+        img.x < (col + 1) * gridWidth && 
+        img.y >= row * gridHeight && 
+        img.y < (row + 1) * gridHeight
+    );
+    
+    if (imagesToRemove.length === 0) {
+        return; // 该位置没有图片
+    }
+    
+    // 从已放置图片列表中移除
+    imagesToRemove.forEach(imgToRemove => {
+        const index = appState.combineState.placedImages.findIndex(img => img.id === imgToRemove.id);
+        if (index !== -1) {
+            appState.combineState.placedImages.splice(index, 1);
+        }
+    });
+    
+    // 重新渲染整个画布
+    const ctx = elements.combineCanvas.getContext('2d');
+    ctx.clearRect(0, 0, elements.combineCanvas.width, elements.combineCanvas.height);
+    
+    // 重新绘制所有剩余的图片
+    appState.combineState.placedImages.forEach(placedImage => {
+        renderPlacedImage(placedImage);
+    });
+    
+    updateStatus('网格单元格已清空');
+}
+
 // 渲染网格
 function renderGrid() {
     const { width, height, cols, rows } = appState.combineState.grid;
@@ -1173,6 +1209,13 @@ function renderGrid() {
             cell.style.top = `${row * height}px`;
             cell.dataset.col = col;
             cell.dataset.row = row;
+            cell.title = '右键点击清空此单元格'; // 添加提示
+            
+            // 添加右键点击事件
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                clearCell(col, row);
+            });
 
             elements.gridCells.appendChild(cell);
         }

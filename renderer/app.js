@@ -51,6 +51,8 @@ const elements = {
     addColBtn: document.getElementById('add-col-btn'),
     addRowBtn: document.getElementById('add-row-btn'),
     updateGridBtn: document.getElementById('update-grid-btn'),
+    removeColBtn: document.getElementById('remove-col-btn'),
+    removeRowBtn: document.getElementById('remove-row-btn'),
     // 素材面板元素
     materialsList: document.getElementById('materials-list'),
     toggleMaterialsBtn: document.getElementById('toggle-materials-btn'),
@@ -111,6 +113,8 @@ function bindEventListeners() {
     elements.updateGridBtn.addEventListener('click', updateGridSettings);
     elements.addColBtn.addEventListener('click', addColumn);
     elements.addRowBtn.addEventListener('click', addRow);
+    elements.removeColBtn.addEventListener('click', removeColumn);
+    elements.removeRowBtn.addEventListener('click', removeRow);
 
     // 素材添加事件
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
@@ -1158,6 +1162,40 @@ function addRow() {
     renderGridWithPreservedImages();
     
     updateStatus('已添加一行');
+}
+
+// 移除列
+function removeColumn() {
+    const currentCols = parseInt(elements.gridCols.value);
+    if (currentCols <= 1) return; // 最少保留1列
+    
+    const newCols = currentCols - 1;
+    elements.gridCols.value = newCols;
+    
+    // 更新应用状态
+    appState.combineState.grid.cols = newCols;
+    
+    // 重新渲染网格并保留已放置的图片
+    renderGridWithPreservedImages();
+    
+    updateStatus('已移除一列');
+}
+
+// 移除行
+function removeRow() {
+    const currentRows = parseInt(elements.gridRows.value);
+    if (currentRows <= 1) return; // 最少保留1行
+    
+    const newRows = currentRows - 1;
+    elements.gridRows.value = newRows;
+    
+    // 更新应用状态
+    appState.combineState.grid.rows = newRows;
+    
+    // 重新渲染网格并保留已放置的图片
+    renderGridWithPreservedImages();
+    
+    updateStatus('已移除一行');
 }
 
 // 更新网格设置

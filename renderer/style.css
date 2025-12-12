@@ -370,6 +370,32 @@ body {
     font-size: 14px;
 }
 
+/* 网格添加按钮样式 */
+.grid-add-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    font-weight: bold;
+}
+
+.grid-add-btn:hover {
+    background-color: #666;
+}
+
+.grid-add-btn:active {
+    background-color: #777;
+}
+
 /* 组合工作区样式 */
 .combine-workspace {
     display: flex;

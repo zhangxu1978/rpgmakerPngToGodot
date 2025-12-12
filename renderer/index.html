@@ -60,15 +60,17 @@
                     <div class="grid-settings">
                         <label>行列数:</label>
                         <input type="number" id="grid-cols" min="1" value="10" class="grid-input">
+                        <button id="add-col-btn" class="grid-add-btn">+</button>
                         <span>列 ×</span>
                         <input type="number" id="grid-rows" min="1" value="10" class="grid-input">
+                        <button id="add-row-btn" class="grid-add-btn">+</button>
                         <span>行</span>
                         <button id="update-grid-btn" class="tool-btn">更新网格</button>
                     </div>
                     <button id="toggle-materials-btn" class="tool-btn">切换素材库</button>
                     <button id="add-images-btn" class="tool-btn">添加图片</button>
                     <button id="add-slices-btn" class="tool-btn">添加切片</button>
-                    <button id="clear-grid-btn" class="tool-btn">清空网格</button>
+                    <button  style="display: none;" id="clear-grid-btn" class="tool-btn">清空网格</button>
                     <button id="save-combined-btn" class="tool-btn">保存组合</button>
                 </div>
 

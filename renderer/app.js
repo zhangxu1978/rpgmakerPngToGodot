@@ -48,6 +48,8 @@ const elements = {
     gridHeight: document.getElementById('grid-height'),
     gridCols: document.getElementById('grid-cols'),
     gridRows: document.getElementById('grid-rows'),
+    addColBtn: document.getElementById('add-col-btn'),
+    addRowBtn: document.getElementById('add-row-btn'),
     updateGridBtn: document.getElementById('update-grid-btn'),
     // 素材面板元素
     materialsList: document.getElementById('materials-list'),
@@ -107,6 +109,8 @@ function bindEventListeners() {
 
     // 网格设置事件
     elements.updateGridBtn.addEventListener('click', updateGridSettings);
+    elements.addColBtn.addEventListener('click', addColumn);
+    elements.addRowBtn.addEventListener('click', addRow);
 
     // 素材添加事件
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
@@ -1126,6 +1130,36 @@ function initCombineArea() {
     elements.materialsDrawer.classList.remove('show');
 }
 
+// 添加列
+function addColumn() {
+    const currentCols = parseInt(elements.gridCols.value);
+    const newCols = currentCols + 1;
+    elements.gridCols.value = newCols;
+    
+    // 更新应用状态
+    appState.combineState.grid.cols = newCols;
+    
+    // 重新渲染网格并保留已放置的图片
+    renderGridWithPreservedImages();
+    
+    updateStatus('已添加一列');
+}
+
+// 添加行
+function addRow() {
+    const currentRows = parseInt(elements.gridRows.value);
+    const newRows = currentRows + 1;
+    elements.gridRows.value = newRows;
+    
+    // 更新应用状态
+    appState.combineState.grid.rows = newRows;
+    
+    // 重新渲染网格并保留已放置的图片
+    renderGridWithPreservedImages();
+    
+    updateStatus('已添加一行');
+}
+
 // 更新网格设置
 function updateGridSettings() {
     const width = parseInt(elements.gridWidth.value);
@@ -1143,8 +1177,8 @@ function updateGridSettings() {
     appState.combineState.grid.cols = cols;
     appState.combineState.grid.rows = rows;
 
-    // 重新渲染网格
-    renderGrid();
+    // 重新渲染网格并保留已放置的图片
+    renderGridWithPreservedImages();
 
     updateStatus('网格设置已更新');
 }
@@ -1228,6 +1262,20 @@ function renderGrid() {
     // 清空画布
     const ctx = elements.combineCanvas.getContext('2d');
     ctx.clearRect(0, 0, elements.combineCanvas.width, elements.combineCanvas.height);
+}
+
+// 渲染网格并保留已放置的图片
+function renderGridWithPreservedImages() {
+    // 保存已放置的图片列表
+    const preservedImages = [...appState.combineState.placedImages];
+    
+    // 重新渲染网格
+    renderGrid();
+    
+    // 重新绘制所有已放置的图片
+    preservedImages.forEach(placedImage => {
+        renderPlacedImage(placedImage);
+    });
 }
 
 // 添加组合图片

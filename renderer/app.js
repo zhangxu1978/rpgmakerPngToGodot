@@ -451,13 +451,11 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
         • 绿色边框：已合并的图块组 | 红色半透明：已删除的图块 | 蓝色半透明：当前选择的图块
     `;
 
-    // 创建预览画布容器（占据剩余空间，居中显示）
+    // 创建预览画布容器（占据剩余空间，允许滚动）
     const previewContainer = document.createElement('div');
     previewContainer.style.cssText = `
         flex: 1;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        display: block;
         overflow: auto;
         padding: 20px;
         background-color: #1a1a1a;
@@ -475,9 +473,6 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
         border: 3px solid #4CAF50;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
         background-color: #fff;
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
     `;
     slicePreviewState.previewCanvas = previewCanvas;
     slicePreviewState.previewCtx = previewCanvas.getContext('2d');

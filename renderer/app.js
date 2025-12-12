@@ -28,6 +28,9 @@ const elements = {
     placeholder: document.getElementById('canvas-placeholder'),
     openBtn: document.getElementById('open-btn'),
     exportBtn: document.getElementById('export-btn'),
+    resizeBtn: document.getElementById('resize-btn'),
+    resizeWidth: document.getElementById('resize-width'),
+    resizeHeight: document.getElementById('resize-height'),
     removeBgBtn: document.getElementById('remove-bg-btn'),
     toleranceSlider: document.getElementById('tolerance-slider'),
     toleranceValue: document.querySelector('.tolerance-value'),
@@ -100,6 +103,7 @@ function bindEventListeners() {
     // 按钮事件
     elements.openBtn.addEventListener('click', openImage);
     elements.exportBtn.addEventListener('click', exportPNG);
+    elements.resizeBtn.addEventListener('click', resizeImage);
     elements.removeBgBtn.addEventListener('click', removeBackground);
     elements.sliceBtn.addEventListener('click', sliceImage);
     elements.saveSlicesBtn.addEventListener('click', saveAllSlices);
@@ -153,6 +157,7 @@ function bindEventListeners() {
     if (window.electronAPI) {
         window.electronAPI.onMenuOpenFile(openImage);
         window.electronAPI.onMenuExportPng(exportPNG);
+        window.electronAPI.onMenuResizeImage(resizeImage);
         window.electronAPI.onMenuRemoveBackground(removeBackground);
         window.electronAPI.onMenuSliceImage(sliceImage);
         window.electronAPI.onMenuCombineImages(toggleCombineMode);
@@ -323,6 +328,135 @@ async function handleDrop(e) {
         }
     }
 }
+
+async function resizeImage() {
+    if (!appState.currentImage && appState.canvas.width === 0) {
+        updateStatus('请先打开图片');
+        return;
+    }
+
+    const targetWidth = parseInt(elements.resizeWidth.value);
+    const targetHeight = parseInt(elements.resizeHeight.value);
+
+    if (!targetWidth || !targetHeight || targetWidth < 1 || targetHeight < 1) {
+        updateStatus('请输入有效尺寸');
+        return;
+    }
+
+    updateStatus('正在高质量平滑压缩（含可调锐化）...');
+
+    // 参数：缩放步长与锐化强度（0 = 不锐化，1 = 全部应用）
+    const scaleStep = 0.75;        // 每次缩小到 75%
+    const sharpenAmount = 0.25;    // 锐化混合强度（可调：0.0 ~ 1.0）
+
+    // --- 原始画布复制 ---
+    let tempCanvas = document.createElement('canvas');
+    tempCanvas.width = appState.canvas.width;
+    tempCanvas.height = appState.canvas.height;
+    let tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(appState.canvas, 0, 0);
+
+    let curW = tempCanvas.width;
+    let curH = tempCanvas.height;
+
+    // --- 多级缩放 ---
+    while (curW * scaleStep > targetWidth && curH * scaleStep > targetHeight) {
+        curW = Math.max(Math.round(curW * scaleStep), targetWidth);
+        curH = Math.max(Math.round(curH * scaleStep), targetHeight);
+
+        const nextCanvas = document.createElement('canvas');
+        nextCanvas.width = curW;
+        nextCanvas.height = curH;
+        const nextCtx = nextCanvas.getContext('2d');
+
+        nextCtx.imageSmoothingEnabled = true;
+        nextCtx.imageSmoothingQuality = 'high';
+        nextCtx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, curW, curH);
+
+        tempCanvas = nextCanvas;
+    }
+
+    // --- 最终精确缩放到目标尺寸 ---
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = targetWidth;
+    finalCanvas.height = targetHeight;
+    const finalCtx = finalCanvas.getContext('2d');
+    finalCtx.imageSmoothingEnabled = true;
+    finalCtx.imageSmoothingQuality = 'high';
+    finalCtx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, targetWidth, targetHeight);
+
+    // --- 如果需要锐化，则对 finalCanvas 做 3x3 卷积并按 sharpenAmount 混合 ---
+    if (sharpenAmount > 0) {
+        try {
+            const imgData = finalCtx.getImageData(0, 0, targetWidth, targetHeight);
+            const src = imgData.data;
+            const w = imgData.width;
+            const h = imgData.height;
+            const dst = new Uint8ClampedArray(src.length);
+
+            // 3x3 锐化内核（中心 > 1）
+            const kernel = [
+                 0, -1,  0,
+                -1,  5, -1,
+                 0, -1,  0
+            ];
+            const ksize = 3;
+            const half = Math.floor(ksize / 2);
+
+            // 卷积（对 R,G,B 通道），A 通道直接拷贝
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const dstIdx = (y * w + x) * 4;
+                    let r = 0, g = 0, b = 0;
+
+                    for (let ky = -half; ky <= half; ky++) {
+                        const sy = Math.min(h - 1, Math.max(0, y + ky));
+                        for (let kx = -half; kx <= half; kx++) {
+                            const sx = Math.min(w - 1, Math.max(0, x + kx));
+                            const srcIdx = (sy * w + sx) * 4;
+                            const kval = kernel[(ky + half) * ksize + (kx + half)];
+                            r += src[srcIdx] * kval;
+                            g += src[srcIdx + 1] * kval;
+                            b += src[srcIdx + 2] * kval;
+                        }
+                    }
+
+                    // clamp
+                    r = Math.min(255, Math.max(0, Math.round(r)));
+                    g = Math.min(255, Math.max(0, Math.round(g)));
+                    b = Math.min(255, Math.max(0, Math.round(b)));
+
+                    // 混合：保持部分原始，避免过锐
+                    const origR = src[dstIdx];
+                    const origG = src[dstIdx + 1];
+                    const origB = src[dstIdx + 2];
+                    dst[dstIdx]     = Math.round(origR * (1 - sharpenAmount) + r * sharpenAmount);
+                    dst[dstIdx + 1] = Math.round(origG * (1 - sharpenAmount) + g * sharpenAmount);
+                    dst[dstIdx + 2] = Math.round(origB * (1 - sharpenAmount) + b * sharpenAmount);
+                    dst[dstIdx + 3] = src[dstIdx + 3]; // alpha unchanged
+                }
+            }
+
+            // put back
+            const outImg = new ImageData(dst, w, h);
+            finalCtx.putImageData(outImg, 0, 0);
+        } catch (e) {
+            console.warn('锐化失败，跳过锐化：', e);
+            // 如果失败（比如跨域画布），就跳过锐化
+        }
+    }
+
+    // --- 输出回主画布 ---
+    appState.canvas.width = targetWidth;
+    appState.canvas.height = targetHeight;
+    appState.ctx.clearRect(0, 0, targetWidth, targetHeight);
+    appState.ctx.drawImage(finalCanvas, 0, 0);
+
+    updateStatus(`平滑高质量压缩完成：${targetWidth}×${targetHeight}`);
+}
+
+
+
 
 // 去除背景
 function removeBackground() {

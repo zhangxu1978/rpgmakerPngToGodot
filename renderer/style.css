@@ -65,7 +65,8 @@ body {
 }
 
 /* 切图输入框样式 */
-.slice-input {
+.slice-input,
+.resize-input {
     width: 60px;
     padding: 4px 8px;
     border: 1px solid #ccc;
@@ -73,7 +74,8 @@ body {
     font-size: 14px;
 }
 
-.slice-separator {
+.slice-separator,
+.resize-separator {
     font-size: 16px;
     font-weight: bold;
 }

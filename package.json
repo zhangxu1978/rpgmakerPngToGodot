@@ -8,7 +8,12 @@
     "dev": "electron .",
     "build": "electron-builder"
   },
-  "keywords": ["electron", "image-editor", "png", "background-removal"],
+  "keywords": [
+    "electron",
+    "image-editor",
+    "png",
+    "background-removal"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -38,5 +43,8 @@
       "url": "http://localhost/"
     },
     "afterSign": null
+  },
+  "dependencies": {
+    "pica": "^9.0.1"
   }
 }

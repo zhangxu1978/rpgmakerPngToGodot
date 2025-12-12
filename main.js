@@ -44,6 +44,12 @@ function createWindow() {
       label: '编辑',
       submenu: [
         {
+          label: '缩小图片',
+          click: () => {
+            mainWindow.webContents.send('menu:resize-image');
+          }
+        },
+        {
           label: '去除背景',
           click: () => {
             mainWindow.webContents.send('menu:remove-background');

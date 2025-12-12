@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 菜单事件监听
   onMenuOpenFile: (callback) => ipcRenderer.on('menu:open-file', callback),
   onMenuExportPng: (callback) => ipcRenderer.on('menu:export-png', callback),
+  onMenuResizeImage: (callback) => ipcRenderer.on('menu:resize-image', callback),
   onMenuRemoveBackground: (callback) => ipcRenderer.on('menu:remove-background', callback),
   onMenuSliceImage: (callback) => ipcRenderer.on('menu:slice-image', callback),
   onMenuCombineImages: (callback) => ipcRenderer.on('menu:combine-images', callback),
@@ -20,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAllListeners: () => {
     ipcRenderer.removeAllListeners('menu:open-file');
     ipcRenderer.removeAllListeners('menu:export-png');
+    ipcRenderer.removeAllListeners('menu:resize-image');
     ipcRenderer.removeAllListeners('menu:remove-background');
     ipcRenderer.removeAllListeners('menu:slice-image');
     ipcRenderer.removeAllListeners('menu:combine-images');

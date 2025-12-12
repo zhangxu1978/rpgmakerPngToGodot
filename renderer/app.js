@@ -31,6 +31,7 @@ const elements = {
     resizeBtn: document.getElementById('resize-btn'),
     resizeWidth: document.getElementById('resize-width'),
     resizeHeight: document.getElementById('resize-height'),
+    usePicaCheckbox: document.getElementById('use-pica-checkbox'),
     removeBgBtn: document.getElementById('remove-bg-btn'),
     toleranceSlider: document.getElementById('tolerance-slider'),
     toleranceValue: document.querySelector('.tolerance-value'),
@@ -343,6 +344,62 @@ async function resizeImage() {
         return;
     }
 
+    const usePica = elements.usePicaCheckbox.checked;
+    
+    if (usePica) {
+        await resizeImageWithPica(targetWidth, targetHeight);
+    } else {
+        resizeImageWithNative(targetWidth, targetHeight);
+    }
+}
+
+// 使用Pica库进行高质量图片压缩
+async function resizeImageWithPica(targetWidth, targetHeight) {
+    updateStatus('正在使用pica库进行高质量压缩...');
+    
+    try {
+        // 创建pica实例
+        const picaInstance = window.pica();
+
+        // 创建源画布
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = appState.canvas.width;
+        sourceCanvas.height = appState.canvas.height;
+        const sourceCtx = sourceCanvas.getContext('2d');
+        sourceCtx.drawImage(appState.canvas, 0, 0);
+
+        // 创建目标画布
+        const targetCanvas = document.createElement('canvas');
+        targetCanvas.width = targetWidth;
+        targetCanvas.height = targetHeight;
+
+        // 使用pica进行高质量图片缩放
+        await picaInstance.resize(sourceCanvas, targetCanvas, {
+            width: targetWidth,
+            height: targetHeight,
+            quality: 5, // 最高质量等级
+            alpha: true, // 支持透明通道
+            unsharpAmount: 80, // 锐化量
+            unsharpRadius: 0.6, // 锐化半径
+            unsharpThreshold: 2 // 锐化阈值
+        });
+
+        // 将压缩后的图片绘制到主画布
+        appState.canvas.width = targetWidth;
+        appState.canvas.height = targetHeight;
+        appState.ctx.clearRect(0, 0, targetWidth, targetHeight);
+        appState.ctx.drawImage(targetCanvas, 0, 0);
+
+        updateStatus(`pica高质量压缩完成：${targetWidth}×${targetHeight}`);
+    } catch (error) {
+        console.error('pica压缩失败:', error);
+        updateStatus('pica压缩失败，已自动切换到原生压缩');
+        resizeImageWithNative(targetWidth, targetHeight);
+    }
+}
+
+// 使用原生Canvas API进行图片压缩
+function resizeImageWithNative(targetWidth, targetHeight) {
     updateStatus('正在高质量平滑压缩（含可调锐化）...');
 
     // 参数：缩放步长与锐化强度（0 = 不锐化，1 = 全部应用）

@@ -80,6 +80,26 @@ body {
     font-weight: bold;
 }
 
+/* Pica复选框样式 */
+.pica-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.pica-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    font-size: 14px;
+    color: white;
+    user-select: none;
+}
+
 /* 主内容区样式 */
 .main-content {
     display: flex;

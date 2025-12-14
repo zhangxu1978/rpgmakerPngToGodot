@@ -36,6 +36,7 @@ const elements = {
     toleranceSlider: document.getElementById('tolerance-slider'),
     toleranceValue: document.querySelector('.tolerance-value'),
     sliceBtn: document.getElementById('slice-btn'),
+    autoMarkBtn: document.getElementById('auto-mark-btn'),
     sliceWidth: document.getElementById('slice-width'),
     sliceHeight: document.getElementById('slice-height'),
     slicePreview: document.getElementById('slice-preview'),
@@ -107,6 +108,7 @@ function bindEventListeners() {
     elements.resizeBtn.addEventListener('click', resizeImage);
     elements.removeBgBtn.addEventListener('click', removeBackground);
     elements.sliceBtn.addEventListener('click', sliceImage);
+    elements.autoMarkBtn.addEventListener('click', autoMarkImages);
     elements.saveSlicesBtn.addEventListener('click', saveAllSlices);
     // 组合图片事件
     elements.combineBtn.addEventListener('click', toggleCombineMode);
@@ -168,6 +170,58 @@ function bindEventListeners() {
 // 更新容差值显示
 function updateToleranceValue() {
     elements.toleranceValue.textContent = `容差: ${appState.tolerance}`;
+}
+
+// 自动打标功能
+function autoMarkImages() {
+    if (!appState.currentImage) {
+        updateStatus('请先打开图片');
+        return;
+    }
+
+    const sliceWidth = parseInt(elements.sliceWidth.value);
+    const sliceHeight = parseInt(elements.sliceHeight.value);
+
+    if (sliceWidth <= 0 || sliceHeight <= 0) {
+        updateStatus('切图尺寸必须大于0');
+        return;
+    }
+
+    updateStatus('正在自动打标...');
+
+    // 获取画布上下文
+    const ctx = appState.ctx;
+    const canvas = appState.canvas;
+
+    // 计算行列数
+    const cols = Math.ceil(canvas.width / sliceWidth);
+    const rows = Math.ceil(canvas.height / sliceHeight);
+
+    // 配置文本样式
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#000000';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 绘制标记数字
+    let counter = 1;
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const x = col * sliceWidth + sliceWidth / 2;
+            const y = row * sliceHeight + sliceHeight / 2;
+            
+            // 绘制文字轮廓（白色描边）
+            ctx.strokeText(counter.toString(), x, y);
+            // 绘制文字填充（黑色）
+            ctx.fillText(counter.toString(), x, y);
+            
+            counter++;
+        }
+    }
+
+    updateStatus(`自动打标完成，共标记 ${counter - 1} 个区域`);
 }
 
 // 更新状态栏

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (options) => ipcRenderer.invoke('dialog:saveFile'),
   saveDataURL: (filePath, dataURL) => ipcRenderer.invoke('fs:saveDataURL', filePath, dataURL),
   saveSlices: (sourceFilePath, slices) => ipcRenderer.invoke('fs:saveSlices', sourceFilePath, slices),
+  writeFile: (filePath, data) => ipcRenderer.invoke('fs:writeFile', filePath, data),
 
   // 菜单事件监听
   onMenuOpenFile: (callback) => ipcRenderer.on('menu:open-file', callback),

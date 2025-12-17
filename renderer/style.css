@@ -825,3 +825,48 @@ body {
     opacity: 1;
     pointer-events: all;
 }
+
+/* 选中单元格高亮样式 */
+.grid-cell.selected {
+    border-color: #2196F3;
+    background-color: rgba(33, 150, 243, 0.2);
+    z-index: 4;
+}
+
+/* 单元格选项菜单样式 */
+.cell-options-menu {
+    position: fixed;
+    background: #2a2a2a;
+    border: 2px solid #444;
+    border-radius: 4px;
+    padding: 10px;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* 单元格选项按钮样式 */
+.cell-option-btn {
+    padding: 8px 16px;
+    background: #3a3a3a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.cell-option-btn:hover {
+    background: #4a4a4a;
+    border-color: #666;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.cell-option-btn:active {
+    background: #5a5a5a;
+    transform: translateY(0);
+}

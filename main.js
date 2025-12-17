@@ -200,3 +200,21 @@ ipcMain.handle('fs:saveSlices', async (event, sourceFilePath, slices) => {
     };
   }
 });
+
+// 处理文件写入
+ipcMain.handle('fs:writeFile', async (event, filePath, data) => {
+  try {
+    // 确保目录存在
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // 写入文件
+    fs.writeFileSync(filePath, data, 'utf8');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to write file:', error);
+    return { success: false, error: error.message };
+  }
+});

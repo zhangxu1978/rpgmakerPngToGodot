@@ -18,7 +18,12 @@ const appState = {
         },
         isDragging: false,
         draggedMaterial: null,
-        highlightCell: null
+        highlightCell: null,
+        // 新增选择状态
+        isSelecting: false,
+        selectionStart: null,
+        selectedCells: [],
+        cellData: new Map() // 缓存单元格属性数据，键格式为 `${col},${row}`
     }
 };
 
@@ -1529,9 +1534,47 @@ function renderGrid() {
                 clearCell(col, row);
             });
 
+            // 新增：添加选择相关事件监听器
+            cell.addEventListener('mousedown', (e) => {
+                if (e.button === 0) { // 左键
+                    startSelection(col, row);
+                }
+            });
+
+            cell.addEventListener('mousemove', (e) => {
+                if (appState.combineState.isSelecting) {
+                    updateSelection(col, row);
+                }
+            });
+
+            cell.addEventListener('mouseup', (e) => {
+                if (e.button === 0) { // 左键
+                    endSelection();
+                }
+            });
+
+            cell.addEventListener('mouseleave', (e) => {
+                if (appState.combineState.isSelecting) {
+                    updateSelection(col, row);
+                }
+            });
+
             elements.gridCells.appendChild(cell);
         }
     }
+
+    // 新增：为放置容器添加事件监听器，确保选择能正常结束
+    elements.placementContainer.addEventListener('mouseup', (e) => {
+        if (appState.combineState.isSelecting && e.button === 0) {
+            endSelection();
+        }
+    });
+
+    elements.placementContainer.addEventListener('mouseleave', () => {
+        if (appState.combineState.isSelecting) {
+            endSelection();
+        }
+    });
 
     // 更新放置容器尺寸
     elements.placementContainer.style.width = `${cols * width + 20}px`;
@@ -1857,12 +1900,183 @@ function renderPlacedImage(placedImage) {
 function clearGrid() {
     // 清空已放置图片列表
     appState.combineState.placedImages = [];
+    // 清空单元格数据和选择状态
+    appState.combineState.cellData.clear();
+    clearSelection();
 
     // 清空画布
     const ctx = elements.combineCanvas.getContext('2d');
     ctx.clearRect(0, 0, elements.combineCanvas.width, elements.combineCanvas.height);
 
     updateStatus('网格已清空');
+}
+
+// 开始选择单元格
+function startSelection(col, row) {
+    appState.combineState.isSelecting = true;
+    appState.combineState.selectionStart = { col, row };
+    appState.combineState.selectedCells = [{ col, row }];
+    
+    // 高亮选中的单元格
+    highlightSelectedCells();
+}
+
+// 更新选择区域
+function updateSelection(col, row) {
+    if (!appState.combineState.isSelecting || !appState.combineState.selectionStart) {
+        return;
+    }
+    
+    const { selectionStart } = appState.combineState;
+    
+    // 计算选择区域的边界
+    const minCol = Math.min(selectionStart.col, col);
+    const maxCol = Math.max(selectionStart.col, col);
+    const minRow = Math.min(selectionStart.row, row);
+    const maxRow = Math.max(selectionStart.row, row);
+    
+    // 生成选中的单元格列表
+    const selectedCells = [];
+    for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+            selectedCells.push({ col: c, row: r });
+        }
+    }
+    
+    appState.combineState.selectedCells = selectedCells;
+    
+    // 更新高亮
+    highlightSelectedCells();
+}
+
+// 结束选择
+function endSelection() {
+    if (!appState.combineState.isSelecting) {
+        return;
+    }
+    
+    appState.combineState.isSelecting = false;
+    
+    // 如果有选中的单元格，显示属性选项菜单
+    if (appState.combineState.selectedCells.length > 0) {
+        showCellOptions();
+    }
+}
+
+// 清除选择
+function clearSelection() {
+    appState.combineState.isSelecting = false;
+    appState.combineState.selectionStart = null;
+    appState.combineState.selectedCells = [];
+    
+    // 移除所有高亮
+    const cells = elements.gridCells.querySelectorAll('.grid-cell');
+    cells.forEach(cell => {
+        cell.classList.remove('selected');
+    });
+}
+
+// 高亮选中的单元格
+function highlightSelectedCells() {
+    // 先移除所有高亮
+    const cells = elements.gridCells.querySelectorAll('.grid-cell');
+    cells.forEach(cell => {
+        cell.classList.remove('selected');
+    });
+    
+    // 高亮选中的单元格
+    appState.combineState.selectedCells.forEach(cell => {
+        const gridCell = elements.gridCells.querySelector(`[data-col="${cell.col}"][data-row="${cell.row}"]`);
+        if (gridCell) {
+            gridCell.classList.add('selected');
+        }
+    });
+}
+
+// 显示单元格属性选项菜单
+function showCellOptions() {
+    // 移除已存在的菜单
+    const existingMenu = document.querySelector('.cell-options-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+    
+    // 创建菜单
+    const menu = document.createElement('div');
+    menu.className = 'cell-options-menu';
+    menu.style.cssText = `
+        position: fixed;
+        background: #2a2a2a;
+        border: 2px solid #444;
+        border-radius: 4px;
+        padding: 10px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    `;
+    
+    // 选项列表
+    const options = [
+        { id: 'ground', label: '地面' },
+        { id: 'wall', label: '墙体' },
+        { id: 'wallTop', label: '墙顶' },
+        { id: 'wallDecoration', label: '墙体装饰' },
+        { id: 'groundDecoration', label: '地面装饰' },
+        { id: 'event', label: '事件' }
+    ];
+    
+    // 添加选项按钮
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.textContent = option.label;
+        button.className = 'cell-option-btn';
+        button.style.cssText = `
+            padding: 8px 16px;
+            background: #3a3a3a;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        button.onclick = () => handleCellOptionSelect(option.id);
+        menu.appendChild(button);
+    });
+    
+    // 添加到文档
+    document.body.appendChild(menu);
+    
+    // 居中显示菜单
+    const menuRect = menu.getBoundingClientRect();
+    menu.style.left = `${(window.innerWidth - menuRect.width) / 2}px`;
+    menu.style.top = `${(window.innerHeight - menuRect.height) / 2}px`;
+    
+    // 点击菜单外部关闭菜单
+    setTimeout(() => {
+        const closeMenu = (event) => {
+            if (!menu.contains(event.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        document.addEventListener('click', closeMenu);
+    }, 100);
+}
+
+// 处理单元格选项选择
+function handleCellOptionSelect(optionId) {
+    // 保存选择的属性到每个选中的单元格
+    appState.combineState.selectedCells.forEach(cell => {
+        const key = `${cell.col},${cell.row}`;
+        appState.combineState.cellData.set(key, optionId);
+    });
+    
+    // 清除选择
+    clearSelection();
+    
+    updateStatus(`已为 ${appState.combineState.selectedCells.length} 个单元格设置属性: ${optionId}`);
 }
 
 // 保存组合图片
@@ -1887,7 +2101,40 @@ async function saveCombinedImage() {
         if (filePath) {
             // 将DataURL保存到文件
             await saveDataURLToFile(dataURL, filePath);
-            updateStatus('组合图片保存完成');
+            
+            // 生成同名JSON文件
+            const jsonFilePath = filePath.replace('.png', '.json');
+            
+            // 准备JSON数据
+            const { grid, cellData } = appState.combineState;
+            const jsonData = {
+                cellWidth: grid.width,
+                cellHeight: grid.height,
+                cols: grid.cols,
+                rows: grid.rows,
+                cellData: Array.from(cellData.entries()).map(([key, value]) => {
+                    const [col, row] = key.split(',').map(Number);
+                    return {
+                        col,
+                        row,
+                        type: value
+                    };
+                })
+            };
+            
+            // 保存JSON文件
+            if (window.electronAPI && window.electronAPI.writeFile) {
+                const result = await window.electronAPI.writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2));
+                if (result && result.success) {
+                    updateStatus('组合图片和属性数据保存完成');
+                } else {
+                    console.error('Failed to write JSON file:', result ? result.error : 'Unknown error');
+                    updateStatus('组合图片保存完成，但属性数据保存失败');
+                }
+            } else {
+                console.error('Electron writeFile API not available');
+                updateStatus('组合图片保存完成，但属性数据保存失败');
+            }
         }
     } catch (error) {
         console.error('保存组合图片失败:', error);

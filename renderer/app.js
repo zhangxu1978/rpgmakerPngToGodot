@@ -2072,11 +2072,10 @@ function handleCellOptionSelect(optionId) {
         // 其他选项正常处理
        
         // 将选中的单元格坐标收集成数组
-        let i=0;
         const selectedCoords = appState.combineState.selectedCells.map(cell => ({
             col: cell.col,
             row: cell.row,
-            sign:i++
+            sign:index
         }));
 
         // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push

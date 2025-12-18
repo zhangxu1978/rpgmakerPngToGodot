@@ -23,7 +23,7 @@ const appState = {
         isSelecting: false,
         selectionStart: null,
         selectedCells: [],
-        cellData: new Map() // 缓存单元格属性数据，键格式为 `${col},${row}`
+        cellData: []
     }
 };
 
@@ -1902,6 +1902,7 @@ function clearGrid() {
     appState.combineState.placedImages = [];
     // 清空单元格数据和选择状态
     appState.combineState.cellData.clear();
+    
     clearSelection();
 
     // 清空画布
@@ -2068,10 +2069,25 @@ function showCellOptions() {
 // 处理单元格选项选择
 function handleCellOptionSelect(optionId) {
     // 保存选择的属性到每个选中的单元格
-    appState.combineState.selectedCells.forEach(cell => {
-        const key = `${cell.col},${cell.row}`;
-        appState.combineState.cellData.set(key, optionId);
-    });
+        // 其他选项正常处理
+       
+        // 将选中的单元格坐标收集成数组
+        let i=0;
+        const selectedCoords = appState.combineState.selectedCells.map(cell => ({
+            col: cell.col,
+            row: cell.row,
+            sign:i++
+        }));
+
+        // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push
+        if (!Array.isArray(appState.combineState.cellData)) {
+            appState.combineState.cellData = [];
+        }
+        appState.combineState.cellData.push({
+            optionId: optionId,
+            cells: selectedCoords
+        });
+    
     
     // 清除选择
     clearSelection();
@@ -2112,14 +2128,7 @@ async function saveCombinedImage() {
                 cellHeight: grid.height,
                 cols: grid.cols,
                 rows: grid.rows,
-                cellData: Array.from(cellData.entries()).map(([key, value]) => {
-                    const [col, row] = key.split(',').map(Number);
-                    return {
-                        col,
-                        row,
-                        type: value
-                    };
-                })
+                cellData: cellData
             };
             
             // 保存JSON文件

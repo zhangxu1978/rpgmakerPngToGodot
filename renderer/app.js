@@ -1995,17 +1995,17 @@ function highlightSelectedCells() {
 }
 
 // 显示单元格属性选项菜单
-function showCellOptions() {
+async function showCellOptions() {
     // 移除已存在的菜单
     const existingMenu = document.querySelector('.cell-options-menu');
     if (existingMenu) {
         existingMenu.remove();
     }
     
-    // 创建菜单
-    const menu = document.createElement('div');
-    menu.className = 'cell-options-menu';
-    menu.style.cssText = `
+    // 创建主菜单
+    const mainMenu = document.createElement('div');
+    mainMenu.className = 'cell-options-menu';
+    mainMenu.style.cssText = `
         position: fixed;
         background: #2a2a2a;
         border: 2px solid #444;
@@ -2018,47 +2018,228 @@ function showCellOptions() {
         gap: 5px;
     `;
     
-    // 选项列表
-    const options = [
-        { id: 'ground', label: '地面' },
-        { id: 'wall', label: '墙体' },
-        { id: 'wallTop', label: '墙顶' },
-        { id: 'wallDecoration', label: '墙体装饰' },
-        { id: 'groundDecoration', label: '地面装饰' },
-        { id: 'event', label: '事件' }
-    ];
+    // 从JSON文件加载菜单数据
+    let menuData = [];
+    try {
+        const response = await fetch('./menuData.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        menuData = await response.json();
+    } catch (error) {
+        console.error('Failed to load menu data:', error);
+        // 回退到默认菜单数据
+        menuData = [
+            {
+                id: 'dungeon',
+                label: '地下城',
+                submenu: [
+                    { id: 'ground', label: '地面' ,submenu: [
+                        { id: 'ground', label: '地面' },
+                        { id: 'animation', label: '动画' },
+                    ]},
+                    { id: 'wall', label: '墙体' },
+                    { id: 'wallTop', label: '墙顶' },
+                    { id: 'wallDecoration', label: '墙体装饰' },
+                    { id: 'groundDecoration', label: '地面装饰' },
+                     
+                    { id: 'event', label: '事件' }
+                ]
+            }
+        ];
+    }
     
-    // 添加选项按钮
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.textContent = option.label;
-        button.className = 'cell-option-btn';
-        button.style.cssText = `
-            padding: 8px 16px;
+    // 添加一级菜单按钮
+    menuData.forEach(menuItem => {
+        const mainButton = document.createElement('button');
+        mainButton.textContent = menuItem.label;
+        mainButton.className = 'cell-main-option-btn';
+        mainButton.style.cssText = `
+            padding: 10px 20px;
             background: #3a3a3a;
             border: 1px solid #555;
             border-radius: 4px;
             color: #fff;
             cursor: pointer;
             font-size: 14px;
+            font-weight: bold;
+            text-align: left;
+            position: relative;
         `;
-        button.onclick = () => handleCellOptionSelect(option.id);
-        menu.appendChild(button);
+        
+        // 只有有子菜单的才显示下拉箭头
+        if (menuItem.submenu.length > 0) {
+            mainButton.style.paddingRight = '30px';
+            mainButton.style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`;
+            mainButton.style.backgroundRepeat = 'no-repeat';
+            mainButton.style.backgroundPosition = 'right 10px center';
+        }
+        
+        // 创建子菜单容器
+        const submenu = document.createElement('div');
+        submenu.className = 'cell-submenu';
+        submenu.style.cssText = `
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            z-index: 10001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 120px;
+        `;
+        
+        // 递归添加子菜单选项
+        function addSubMenuItems(parent, items) {
+            items.forEach(item => {
+                const button = document.createElement('button');
+                button.textContent = item.label;
+                button.className = 'cell-sub-option-btn';
+                button.style.cssText = `
+                    padding: 8px 16px;
+                    background: #3a3a3a;
+                    border: 1px solid #555;
+                    border-radius: 4px;
+                    color: #fff;
+                    cursor: pointer;
+                    font-size: 14px;
+                    text-align: left;
+                    position: relative;
+                    width: 100%;
+                `;
+                
+                // 只有有子菜单的才显示下拉箭头
+                if (item.submenu && item.submenu.length > 0) {
+                    button.style.paddingRight = '30px';
+                    button.style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`;
+                    button.style.backgroundRepeat = 'no-repeat';
+                    button.style.backgroundPosition = 'right 10px center';
+                }
+                
+                // 创建子菜单容器
+                const childSubmenu = document.createElement('div');
+                childSubmenu.className = 'cell-submenu';
+                childSubmenu.style.cssText = `
+                    position: absolute;
+                    left: 100%;
+                    top: 0;
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 4px;
+                    padding: 10px;
+                    z-index: 10001;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    display: none;
+                    flex-direction: column;
+                    gap: 5px;
+                    min-width: 120px;
+                `;
+                
+                // 如果有子菜单，递归添加
+                if (item.submenu && item.submenu.length > 0) {
+                    addSubMenuItems(childSubmenu, item.submenu);
+                } else {
+                    // 没有子菜单，添加点击事件
+                    button.onclick = () => handleCellOptionSelect(item.id);
+                }
+                
+                // 添加鼠标悬停事件，显示/隐藏子菜单
+                button.addEventListener('mouseenter', () => {
+                    // 隐藏所有其他子菜单
+                    document.querySelectorAll('.cell-submenu').forEach(menu => {
+                        if (!button.contains(menu) && !menu.contains(button)) {
+                            menu.style.display = 'none';
+                        }
+                    });
+                    // 显示当前子菜单
+                    if (item.submenu && item.submenu.length > 0) {
+                        childSubmenu.style.display = 'flex';
+                    }
+                });
+                
+                // 添加鼠标离开事件，隐藏子菜单
+                button.addEventListener('mouseleave', () => {
+                    // 使用setTimeout延迟隐藏，让鼠标有时间移动到子菜单
+                    setTimeout(() => {
+                        if (!childSubmenu.matches(':hover') && !button.matches(':hover')) {
+                            childSubmenu.style.display = 'none';
+                        }
+                    }, 200);
+                });
+                
+                // 子菜单鼠标离开事件
+                childSubmenu.addEventListener('mouseleave', () => {
+                    childSubmenu.style.display = 'none';
+                });
+                
+                // 子菜单鼠标进入事件，保持显示
+                childSubmenu.addEventListener('mouseenter', () => {
+                    childSubmenu.style.display = 'flex';
+                });
+                
+                button.appendChild(childSubmenu);
+                parent.appendChild(button);
+            });
+        }
+        
+        // 添加子菜单选项
+        addSubMenuItems(submenu, menuItem.submenu);
+        
+        // 添加鼠标悬停事件，显示/隐藏子菜单
+        mainButton.addEventListener('mouseenter', () => {
+            // 隐藏所有其他子菜单
+            document.querySelectorAll('.cell-submenu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+            // 显示当前子菜单
+            if (menuItem.submenu.length > 0) {
+                submenu.style.display = 'flex';
+            }
+        });
+        
+        // 添加鼠标离开事件，隐藏子菜单
+        mainButton.addEventListener('mouseleave', () => {
+            // 使用setTimeout延迟隐藏，让鼠标有时间移动到子菜单
+            setTimeout(() => {
+                if (!submenu.matches(':hover') && !mainButton.matches(':hover')) {
+                    submenu.style.display = 'none';
+                }
+            }, 200);
+        });
+        
+        // 子菜单鼠标离开事件
+        submenu.addEventListener('mouseleave', () => {
+            submenu.style.display = 'none';
+        });
+        
+        // 子菜单鼠标进入事件，保持显示
+        submenu.addEventListener('mouseenter', () => {
+            submenu.style.display = 'flex';
+        });
+        
+        // 添加到主菜单
+        mainButton.appendChild(submenu);
+        mainMenu.appendChild(mainButton);
     });
     
     // 添加到文档
-    document.body.appendChild(menu);
+    document.body.appendChild(mainMenu);
     
     // 居中显示菜单
-    const menuRect = menu.getBoundingClientRect();
-    menu.style.left = `${(window.innerWidth - menuRect.width) / 2}px`;
-    menu.style.top = `${(window.innerHeight - menuRect.height) / 2}px`;
+    const menuRect = mainMenu.getBoundingClientRect();
+    mainMenu.style.left = `${(window.innerWidth - menuRect.width) / 2}px`;
+    mainMenu.style.top = `${(window.innerHeight - menuRect.height) / 2}px`;
     
     // 点击菜单外部关闭菜单
     setTimeout(() => {
         const closeMenu = (event) => {
-            if (!menu.contains(event.target)) {
-                menu.remove();
+            if (!mainMenu.contains(event.target)) {
+                mainMenu.remove();
                 document.removeEventListener('click', closeMenu);
             }
         };

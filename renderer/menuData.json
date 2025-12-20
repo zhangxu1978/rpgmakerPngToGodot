@@ -1,0 +1,54 @@
+[
+    {
+        "id": "dungeon",
+        "label": "地下城",
+        "submenu": [
+            {
+                "id": "ground",
+                "label": "地面",
+                "submenu": [
+                    { "id": "ground", "label": "地面" },
+                    { "id": "animation", "label": "动画" }
+                ]
+            },
+            { "id": "wall", "label": "墙体" },
+            { "id": "wallTop", "label": "墙顶" },
+            { "id": "wallDecoration", "label": "墙体装饰" },
+            { "id": "groundDecoration", "label": "地面装饰" },
+            { "id": "event", "label": "事件" }
+        ]
+    },
+    {
+        "id": "dock",
+        "label": "码头",
+        "submenu": [
+            { "id": "water", "label": "水" },
+            { "id": "waterDecoration", "label": "水体装饰" },
+            { "id": "ground", "label": "平台" },
+            { "id": "wallTop", "label": "平台底座" },
+            { "id": "groundDecoration", "label": "平台装饰" },
+            { "id": "land", "label": "陆地" },
+            { "id": "event", "label": "事件" }
+        ]
+    },
+    {
+        "id": "world",
+        "label": "世界",
+        "submenu": []
+    },
+    {
+        "id": "town",
+        "label": "城镇",
+        "submenu": []
+    },
+    {
+        "id": "village",
+        "label": "乡村",
+        "submenu": []
+    },
+    {
+        "id": "building",
+        "label": "建筑",
+        "submenu": []
+    }
+]

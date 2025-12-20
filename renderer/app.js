@@ -2074,9 +2074,13 @@ function handleCellOptionSelect(optionId) {
         // 将选中的单元格坐标收集成数组
         const selectedCoords = appState.combineState.selectedCells.map(cell => ({
             col: cell.col,
-            row: cell.row,
-            sign:index
+            row: cell.row
         }));
+        //如果是墙体，碰撞设置为1，如果是地面，碰撞设置为0
+        let collision=1;
+        if(optionId=='ground'||optionId=='groundDecoration'){
+            collision=0;
+        }
 
         // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push
         if (!Array.isArray(appState.combineState.cellData)) {
@@ -2084,6 +2088,7 @@ function handleCellOptionSelect(optionId) {
         }
         appState.combineState.cellData.push({
             optionId: optionId,
+            collision:collision,
             cells: selectedCoords
         });
     

@@ -6,29 +6,100 @@
             {
                 "id": "ground",
                 "label": "地面",
-                "submenu": [
-                    { "id": "ground", "label": "地面" },
-                    { "id": "animation", "label": "动画" }
-                ]
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "47tile"
             },
-            { "id": "wall", "label": "墙体" },
-            { "id": "wallTop", "label": "墙顶" },
-            { "id": "wallDecoration", "label": "墙体装饰" },
-            { "id": "groundDecoration", "label": "地面装饰" },
-            { "id": "event", "label": "事件" }
+            { 
+                "id": "wall", 
+                "label": "墙体",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wallTop", 
+                "label": "墙顶",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wallDecoration", 
+                "label": "墙体装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "groundDecoration", 
+                "label": "地面装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "event", 
+                "label": "事件",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "16tile"
+            }
         ]
     },
     {
         "id": "dock",
         "label": "码头",
         "submenu": [
-            { "id": "water", "label": "水" },
-            { "id": "waterDecoration", "label": "水体装饰" },
-            { "id": "ground", "label": "平台" },
-            { "id": "wallTop", "label": "平台底座" },
-            { "id": "groundDecoration", "label": "平台装饰" },
-            { "id": "land", "label": "陆地" },
-            { "id": "event", "label": "事件" }
+            { 
+                "id": "water", 
+                "label": "水",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "waterDecoration", 
+                "label": "水体装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "ground", 
+                "label": "平台",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wallTop", 
+                "label": "平台底座",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "groundDecoration", 
+                "label": "平台装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "land", 
+                "label": "陆地",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "event", 
+                "label": "事件",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "16tile"
+            }
         ]
     },
     {

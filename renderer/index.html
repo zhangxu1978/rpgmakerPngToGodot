@@ -84,6 +84,7 @@
                     <button id="add-slices-btn" class="tool-btn">添加切片</button>
                     <button id="clear-grid-btn" class="tool-btn">清空网格</button>
                     <button id="save-combined-btn" class="tool-btn">保存组合</button>
+                    <button id="toggle-properties-btn" class="tool-btn">属性面板</button>
                 </div>
 
                 <!-- 组合工作区 - 主放置区 -->
@@ -108,6 +109,64 @@
                             </div>
                         </div>
                         <div class="materials-list" id="materials-list"></div>
+                    </div>
+
+                    <!-- 属性面板 -->
+                    <div class="properties-panel" id="properties-panel" style="display: none;">
+                        <div class="properties-header" id="properties-header">
+                            <h4>快速属性设置</h4>
+                            <div class="header-actions">
+                                <span class="drag-handle">⋮⋮</span>
+                                <button id="close-properties-btn" class="close-btn">×</button>
+                            </div>
+                        </div>
+                        <div class="properties-content">
+                            <!-- 碰撞设置 -->
+                            <div class="property-group">
+                                <label>碰撞:</label>
+                                <div class="property-buttons">
+                                    <button class="property-btn" data-collision="0">无碰撞</button>
+                                    <button class="property-btn" data-collision="1">有碰撞</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 导航设置 -->
+                            <div class="property-group">
+                                <label>导航:</label>
+                                <div class="property-buttons">
+                                    <button class="property-btn" data-navigation="0">不可导航</button>
+                                    <button class="property-btn" data-navigation="1">可导航</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 拆分类型 -->
+                            <div class="property-group">
+                                <label>拆分类型:</label>
+                                <div class="property-buttons">
+                                    <button class="property-btn" data-split-type="47tile">47tile</button>
+                                    <button class="property-btn" data-split-type="9tile">9tile</button>
+                                    <button class="property-btn" data-split-type="16tile">16tile</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 快捷类型选择 -->
+                            <div class="property-group">
+                                <label>快捷类型:</label>
+                                <div class="dropdown-container">
+                                    <select id="category-select" class="property-dropdown">
+                                        <option value="">选择分类</option>
+                                    </select>
+                                    <select id="type-select" class="property-dropdown" disabled>
+                                        <option value="">选择类型</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- 应用按钮 -->
+                            <div class="property-group">
+                                <button id="apply-properties-btn" class="tool-btn" style="width: 100%;">应用到选中区域</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

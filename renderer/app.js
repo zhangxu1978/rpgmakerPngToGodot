@@ -133,6 +133,36 @@ function bindEventListeners() {
     // 清空素材库事件
     elements.clearMaterialsBtn.addEventListener('click', clearMaterials);
 
+    // 属性面板事件
+    const togglePropertiesBtn = document.getElementById('toggle-properties-btn');
+    const closePropertiesBtn = document.getElementById('close-properties-btn');
+    const applyPropertiesBtn = document.getElementById('apply-properties-btn');
+    const propertiesPanel = document.getElementById('properties-panel');
+    const propertiesHeader = document.getElementById('properties-header');
+    
+    if (togglePropertiesBtn) {
+        togglePropertiesBtn.addEventListener('click', togglePropertiesPanel);
+    }
+    if (closePropertiesBtn) {
+        closePropertiesBtn.addEventListener('click', togglePropertiesPanel);
+    }
+    if (applyPropertiesBtn) {
+        applyPropertiesBtn.addEventListener('click', applySelectedProperties);
+    }
+
+    // 属性按钮事件 - 使用更精确的事件委托
+    if (propertiesPanel) {
+        propertiesPanel.addEventListener('click', handlePropertyButtonClick);
+        propertiesPanel.addEventListener('change', handleDropdownChange);
+    }
+
+    // 属性面板拖动事件
+    if (propertiesHeader) {
+        propertiesHeader.addEventListener('mousedown', startPropertiesDrag);
+        document.addEventListener('mousemove', dragProperties);
+        document.addEventListener('mouseup', stopPropertiesDrag);
+    }
+
     // 拖拽事件
     elements.placementContainer.addEventListener('dragover', handleDragOverPlacement);
     elements.placementContainer.addEventListener('dragenter', handleDragEnterPlacement);
@@ -1996,288 +2026,90 @@ function highlightSelectedCells() {
 
 // 显示单元格属性选项菜单
 async function showCellOptions() {
-    // 移除已存在的菜单
-    const existingMenu = document.querySelector('.cell-options-menu');
-    if (existingMenu) {
-        existingMenu.remove();
+    // 直接打开属性面板
+    const propertiesPanel = document.getElementById('properties-panel');
+    if (propertiesPanel.style.display === 'none' || propertiesPanel.style.display === '') {
+        propertiesPanel.style.display = 'block';
+        updateStatus(`已选择 ${appState.combineState.selectedCells.length} 个单元格，请在属性面板中设置属性`);
+    } else {
+        updateStatus(`已选择 ${appState.combineState.selectedCells.length} 个单元格，请在属性面板中设置属性`);
     }
-    
-    // 创建主菜单
-    const mainMenu = document.createElement('div');
-    mainMenu.className = 'cell-options-menu';
-    mainMenu.style.cssText = `
-        position: fixed;
-        background: #2a2a2a;
-        border: 2px solid #444;
-        border-radius: 4px;
-        padding: 10px;
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-    `;
-    
-    // 从JSON文件加载菜单数据
-    let menuData = [];
-    try {
-        const response = await fetch('./menuData.json');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        menuData = await response.json();
-    } catch (error) {
-        console.error('Failed to load menu data:', error);
-        // 回退到默认菜单数据
-        menuData = [
-            {
-                id: 'dungeon',
-                label: '地下城',
-                submenu: [
-                    { id: 'ground', label: '地面' ,submenu: [
-                        { id: 'ground', label: '地面' },
-                        { id: 'animation', label: '动画' },
-                    ]},
-                    { id: 'wall', label: '墙体' },
-                    { id: 'wallTop', label: '墙顶' },
-                    { id: 'wallDecoration', label: '墙体装饰' },
-                    { id: 'groundDecoration', label: '地面装饰' },
-                     
-                    { id: 'event', label: '事件' }
-                ]
-            }
-        ];
-    }
-    
-    // 添加一级菜单按钮
-    menuData.forEach(menuItem => {
-        const mainButton = document.createElement('button');
-        mainButton.textContent = menuItem.label;
-        mainButton.className = 'cell-main-option-btn';
-        mainButton.style.cssText = `
-            padding: 10px 20px;
-            background: #3a3a3a;
-            border: 1px solid #555;
-            border-radius: 4px;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: left;
-            position: relative;
-        `;
-        
-        // 只有有子菜单的才显示下拉箭头
-        if (menuItem.submenu.length > 0) {
-            mainButton.style.paddingRight = '30px';
-            mainButton.style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`;
-            mainButton.style.backgroundRepeat = 'no-repeat';
-            mainButton.style.backgroundPosition = 'right 10px center';
-        }
-        
-        // 创建子菜单容器
-        const submenu = document.createElement('div');
-        submenu.className = 'cell-submenu';
-        submenu.style.cssText = `
-            position: absolute;
-            left: 100%;
-            top: 0;
-            background: #2a2a2a;
-            border: 2px solid #444;
-            border-radius: 4px;
-            padding: 10px;
-            z-index: 10001;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            min-width: 120px;
-        `;
-        
-        // 递归添加子菜单选项
-        function addSubMenuItems(parent, items) {
-            items.forEach(item => {
-                const button = document.createElement('button');
-                button.textContent = item.label;
-                button.className = 'cell-sub-option-btn';
-                button.style.cssText = `
-                    padding: 8px 16px;
-                    background: #3a3a3a;
-                    border: 1px solid #555;
-                    border-radius: 4px;
-                    color: #fff;
-                    cursor: pointer;
-                    font-size: 14px;
-                    text-align: left;
-                    position: relative;
-                    width: 100%;
-                `;
-                
-                // 只有有子菜单的才显示下拉箭头
-                if (item.submenu && item.submenu.length > 0) {
-                    button.style.paddingRight = '30px';
-                    button.style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`;
-                    button.style.backgroundRepeat = 'no-repeat';
-                    button.style.backgroundPosition = 'right 10px center';
-                }
-                
-                // 创建子菜单容器
-                const childSubmenu = document.createElement('div');
-                childSubmenu.className = 'cell-submenu';
-                childSubmenu.style.cssText = `
-                    position: absolute;
-                    left: 100%;
-                    top: 0;
-                    background: #2a2a2a;
-                    border: 2px solid #444;
-                    border-radius: 4px;
-                    padding: 10px;
-                    z-index: 10001;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                    display: none;
-                    flex-direction: column;
-                    gap: 5px;
-                    min-width: 120px;
-                `;
-                
-                // 如果有子菜单，递归添加
-                if (item.submenu && item.submenu.length > 0) {
-                    addSubMenuItems(childSubmenu, item.submenu);
-                } else {
-                    // 没有子菜单，添加点击事件
-                    button.onclick = () => handleCellOptionSelect(item.id);
-                }
-                
-                // 添加鼠标悬停事件，显示/隐藏子菜单
-                button.addEventListener('mouseenter', () => {
-                    // 隐藏所有其他子菜单
-                    document.querySelectorAll('.cell-submenu').forEach(menu => {
-                        if (!button.contains(menu) && !menu.contains(button)) {
-                            menu.style.display = 'none';
-                        }
-                    });
-                    // 显示当前子菜单
-                    if (item.submenu && item.submenu.length > 0) {
-                        childSubmenu.style.display = 'flex';
-                    }
-                });
-                
-                // 添加鼠标离开事件，隐藏子菜单
-                button.addEventListener('mouseleave', () => {
-                    // 使用setTimeout延迟隐藏，让鼠标有时间移动到子菜单
-                    setTimeout(() => {
-                        if (!childSubmenu.matches(':hover') && !button.matches(':hover')) {
-                            childSubmenu.style.display = 'none';
-                        }
-                    }, 200);
-                });
-                
-                // 子菜单鼠标离开事件
-                childSubmenu.addEventListener('mouseleave', () => {
-                    childSubmenu.style.display = 'none';
-                });
-                
-                // 子菜单鼠标进入事件，保持显示
-                childSubmenu.addEventListener('mouseenter', () => {
-                    childSubmenu.style.display = 'flex';
-                });
-                
-                button.appendChild(childSubmenu);
-                parent.appendChild(button);
-            });
-        }
-        
-        // 添加子菜单选项
-        addSubMenuItems(submenu, menuItem.submenu);
-        
-        // 添加鼠标悬停事件，显示/隐藏子菜单
-        mainButton.addEventListener('mouseenter', () => {
-            // 隐藏所有其他子菜单
-            document.querySelectorAll('.cell-submenu').forEach(menu => {
-                menu.style.display = 'none';
-            });
-            // 显示当前子菜单
-            if (menuItem.submenu.length > 0) {
-                submenu.style.display = 'flex';
-            }
-        });
-        
-        // 添加鼠标离开事件，隐藏子菜单
-        mainButton.addEventListener('mouseleave', () => {
-            // 使用setTimeout延迟隐藏，让鼠标有时间移动到子菜单
-            setTimeout(() => {
-                if (!submenu.matches(':hover') && !mainButton.matches(':hover')) {
-                    submenu.style.display = 'none';
-                }
-            }, 200);
-        });
-        
-        // 子菜单鼠标离开事件
-        submenu.addEventListener('mouseleave', () => {
-            submenu.style.display = 'none';
-        });
-        
-        // 子菜单鼠标进入事件，保持显示
-        submenu.addEventListener('mouseenter', () => {
-            submenu.style.display = 'flex';
-        });
-        
-        // 添加到主菜单
-        mainButton.appendChild(submenu);
-        mainMenu.appendChild(mainButton);
-    });
-    
-    // 添加到文档
-    document.body.appendChild(mainMenu);
-    
-    // 居中显示菜单
-    const menuRect = mainMenu.getBoundingClientRect();
-    mainMenu.style.left = `${(window.innerWidth - menuRect.width) / 2}px`;
-    mainMenu.style.top = `${(window.innerHeight - menuRect.height) / 2}px`;
-    
-    // 点击菜单外部关闭菜单
-    setTimeout(() => {
-        const closeMenu = (event) => {
-            if (!mainMenu.contains(event.target)) {
-                mainMenu.remove();
-                document.removeEventListener('click', closeMenu);
-            }
-        };
-        document.addEventListener('click', closeMenu);
-    }, 100);
 }
 
-// 处理单元格选项选择
-function handleCellOptionSelect(optionId) {
-    // 保存选择的属性到每个选中的单元格
-        // 其他选项正常处理
-       
-        // 将选中的单元格坐标收集成数组
-        const selectedCoords = appState.combineState.selectedCells.map(cell => ({
-            col: cell.col,
-            row: cell.row
-        }));
-        //如果是墙体，碰撞设置为1，如果是地面，碰撞设置为0
-        let collision=1;
-        if(optionId=='ground'||optionId=='groundDecoration'){
-            collision=0;
-        }
-
-        // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push
-        if (!Array.isArray(appState.combineState.cellData)) {
-            appState.combineState.cellData = [];
-        }
-        appState.combineState.cellData.push({
-            optionId: optionId,
-            collision:collision,
-            cells: selectedCoords
-        });
+// 处理单元格选项选择（保留原有菜单功能）
+async function handleCellOptionSelect(optionId) {
+    if (appState.combineState.selectedCells.length === 0) {
+        updateStatus('请先选择要设置属性的区域');
+        return;
+    }
     
+    // 将选中的单元格坐标收集成数组
+    const selectedCoords = appState.combineState.selectedCells.map(cell => ({
+        col: cell.col,
+        row: cell.row
+    }));
+    
+    // 从JSON文件中查找对应的属性
+    let optionProperties = null;
+    try {
+        const response = await fetch('./menuData.json');
+        if (response.ok) {
+            const menuData = await response.json();
+            
+            // 递归查找选项
+            function findOption(items, id) {
+                for (const item of items) {
+                    if (item.id === id) {
+                        return item;
+                    }
+                    if (item.submenu && item.submenu.length > 0) {
+                        const found = findOption(item.submenu, id);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            
+            optionProperties = findOption(menuData, optionId);
+        }
+    } catch (error) {
+        console.error('Failed to load menu data:', error);
+    }
+    
+    // 如果找到了属性，使用JSON中的配置，否则使用默认逻辑
+    let collision = 1;
+    let navigation = 0;
+    let splitType = "47tile";
+    
+    if (optionProperties) {
+        collision = optionProperties.collision !== undefined ? optionProperties.collision : collision;
+        navigation = optionProperties.navigation !== undefined ? optionProperties.navigation : navigation;
+        splitType = optionProperties.splitType || splitType;
+    } else {
+        // 回退到原有逻辑
+        if (optionId == 'ground' || optionId == 'groundDecoration') {
+            collision = 0;
+            navigation = 1;
+        }
+    }
+
+    // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push
+    if (!Array.isArray(appState.combineState.cellData)) {
+        appState.combineState.cellData = [];
+    }
+    
+    appState.combineState.cellData.push({
+        optionId: optionId,
+        collision: collision,
+        navigation: navigation,
+        splitType: splitType,
+        cells: selectedCoords
+    });
     
     // 清除选择
     clearSelection();
     
-    updateStatus(`已为 ${appState.combineState.selectedCells.length} 个单元格设置属性: ${optionId}`);
+    updateStatus(`已为 ${selectedCoords.length} 个单元格设置属性: ${optionId} (碰撞:${collision}, 导航:${navigation}, 拆分:${splitType})`);
 }
 
 // 保存组合图片
@@ -2367,3 +2199,347 @@ async function exportPNG() {
 
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', initApp);
+
+// 属性面板相关功能
+let currentProperties = {
+    collision: null,
+    navigation: null,
+    splitType: null,
+    type: null
+};
+
+// 切换属性面板显示/隐藏
+async function togglePropertiesPanel() {
+    const propertiesPanel = document.getElementById('properties-panel');
+    if (propertiesPanel.style.display === 'none' || propertiesPanel.style.display === '') {
+        propertiesPanel.style.display = 'block';
+        // 初始化下拉菜单
+        await initializeDropdowns();
+        updateStatus('属性面板已打开');
+    } else {
+        propertiesPanel.style.display = 'none';
+        updateStatus('属性面板已关闭');
+    }
+}
+
+// 处理属性按钮点击
+function handlePropertyButtonClick(e) {
+    if (e.target.classList.contains('property-btn')) {
+        // 处理单个属性按钮
+        const group = e.target.closest('.property-group');
+        const buttons = group.querySelectorAll('.property-btn');
+        
+        // 移除同组其他按钮的active状态
+        buttons.forEach(btn => btn.classList.remove('active'));
+        
+        // 激活当前按钮
+        e.target.classList.add('active');
+        
+        // 更新当前属性
+        if (e.target.dataset.collision !== undefined) {
+            currentProperties.collision = parseInt(e.target.dataset.collision);
+        }
+        if (e.target.dataset.navigation !== undefined) {
+            currentProperties.navigation = parseInt(e.target.dataset.navigation);
+        }
+        if (e.target.dataset.splitType !== undefined) {
+            currentProperties.splitType = e.target.dataset.splitType;
+        }
+        
+        updatePropertiesDisplay();
+        
+    } else if (e.target.classList.contains('quick-type-btn')) {
+        // 处理快捷类型按钮
+        const buttons = document.querySelectorAll('.quick-type-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // 设置快捷属性
+        currentProperties.type = e.target.dataset.type;
+        currentProperties.collision = parseInt(e.target.dataset.collision);
+        currentProperties.navigation = parseInt(e.target.dataset.navigation);
+        
+        // 同步更新其他按钮状态
+        updatePropertyButtonStates();
+        updatePropertiesDisplay();
+    }
+}
+
+// 更新属性按钮状态
+function updatePropertyButtonStates() {
+    const propertiesPanel = document.getElementById('properties-panel');
+    if (!propertiesPanel) return;
+    
+    // 更新碰撞按钮（只在属性面板内查找）
+    propertiesPanel.querySelectorAll('.property-btn[data-collision]').forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.dataset.collision) === currentProperties.collision) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // 更新导航按钮（只在属性面板内查找）
+    propertiesPanel.querySelectorAll('.property-btn[data-navigation]').forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.dataset.navigation) === currentProperties.navigation) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // 更新拆分类型按钮（只在属性面板内查找）
+    propertiesPanel.querySelectorAll('.property-btn[data-split-type]').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.splitType === currentProperties.splitType) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+// 更新属性显示
+function updatePropertiesDisplay() {
+    // 可以在这里添加当前属性的显示逻辑
+    console.log('当前属性:', currentProperties);
+}
+
+// 应用选中的属性到选中区域
+function applySelectedProperties() {
+    if (appState.combineState.selectedCells.length === 0) {
+        updateStatus('请先选择要设置属性的区域');
+        return;
+    }
+    
+    // 检查是否有设置属性
+    if (currentProperties.collision === null && currentProperties.navigation === null && 
+        currentProperties.splitType === null && currentProperties.type === null) {
+        updateStatus('请先选择要应用的属性');
+        return;
+    }
+    
+    // 将选中的单元格坐标收集成数组
+    const selectedCoords = appState.combineState.selectedCells.map(cell => ({
+        col: cell.col,
+        row: cell.row
+    }));
+    
+    // 如果 cellData 是数组，直接 push 新条目；否则初始化为数组再 push
+    if (!Array.isArray(appState.combineState.cellData)) {
+        appState.combineState.cellData = [];
+    }
+    
+    // 创建属性对象
+    const propertyData = {
+        cells: selectedCoords,
+        ...currentProperties
+    };
+    
+    appState.combineState.cellData.push(propertyData);
+    
+    // 清除选择
+    clearSelection();
+    
+    updateStatus(`已为 ${selectedCoords.length} 个单元格应用属性`);
+}
+
+// 重置属性选择
+function resetProperties() {
+    currentProperties = {
+        collision: null,
+        navigation: null,
+        splitType: null,
+        type: null
+    };
+    
+    // 移除属性面板内所有按钮的active状态
+    const propertiesPanel = document.getElementById('properties-panel');
+    if (propertiesPanel) {
+        propertiesPanel.querySelectorAll('.property-btn, .quick-type-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    }
+    
+    // 重置下拉菜单
+    const categorySelect = document.getElementById('category-select');
+    const typeSelect = document.getElementById('type-select');
+    if (categorySelect) categorySelect.value = '';
+    if (typeSelect) {
+        typeSelect.value = '';
+        typeSelect.disabled = true;
+    }
+    
+    updatePropertiesDisplay();
+}
+// 属性面板拖动相关变量
+let propertiesDragState = {
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0
+};
+
+// 初始化下拉菜单
+async function initializeDropdowns() {
+    try {
+        const response = await fetch('./menuData.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const menuData = await response.json();
+        
+        const categorySelect = document.getElementById('category-select');
+        const typeSelect = document.getElementById('type-select');
+        
+        // 清空现有选项
+        categorySelect.innerHTML = '<option value="">选择分类</option>';
+        typeSelect.innerHTML = '<option value="">选择类型</option>';
+        typeSelect.disabled = true;
+        
+        // 填充分类选项
+        menuData.forEach(category => {
+            if (category.submenu && category.submenu.length > 0) {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.label;
+                categorySelect.appendChild(option);
+            }
+        });
+        
+        // 存储菜单数据供后续使用
+        window.menuDataCache = menuData;
+        
+    } catch (error) {
+        console.error('Failed to load menu data:', error);
+        updateStatus('加载菜单数据失败');
+    }
+}
+
+// 处理下拉菜单变化
+function handleDropdownChange(e) {
+    if (e.target.id === 'category-select') {
+        handleCategoryChange(e.target.value);
+    } else if (e.target.id === 'type-select') {
+        handleTypeChange(e.target.value);
+    }
+}
+
+// 处理分类选择变化
+function handleCategoryChange(categoryId) {
+    const typeSelect = document.getElementById('type-select');
+    
+    // 清空类型选项
+    typeSelect.innerHTML = '<option value="">选择类型</option>';
+    
+    if (!categoryId || !window.menuDataCache) {
+        typeSelect.disabled = true;
+        return;
+    }
+    
+    // 找到选中的分类
+    const selectedCategory = window.menuDataCache.find(cat => cat.id === categoryId);
+    if (!selectedCategory || !selectedCategory.submenu) {
+        typeSelect.disabled = true;
+        return;
+    }
+    
+    // 填充类型选项
+    selectedCategory.submenu.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.id;
+        option.textContent = type.label;
+        option.dataset.collision = type.collision !== undefined ? type.collision : '';
+        option.dataset.navigation = type.navigation !== undefined ? type.navigation : '';
+        option.dataset.splitType = type.splitType || '';
+        typeSelect.appendChild(option);
+    });
+    
+    typeSelect.disabled = false;
+}
+
+// 处理类型选择变化
+function handleTypeChange(typeId) {
+    const typeSelect = document.getElementById('type-select');
+    const selectedOption = typeSelect.querySelector(`option[value="${typeId}"]`);
+    
+    if (!selectedOption || !typeId) {
+        return;
+    }
+    
+    // 设置快捷属性
+    currentProperties.type = typeId;
+    
+    if (selectedOption.dataset.collision !== '') {
+        currentProperties.collision = parseInt(selectedOption.dataset.collision);
+    }
+    if (selectedOption.dataset.navigation !== '') {
+        currentProperties.navigation = parseInt(selectedOption.dataset.navigation);
+    }
+    if (selectedOption.dataset.splitType) {
+        currentProperties.splitType = selectedOption.dataset.splitType;
+    }
+    
+    // 同步更新其他按钮状态
+    updatePropertyButtonStates();
+    updatePropertiesDisplay();
+    
+    updateStatus(`已选择类型: ${selectedOption.textContent}`);
+}
+
+// 开始拖动属性面板
+function startPropertiesDrag(e) {
+    // 只在左键点击时触发
+    if (e.button !== 0) return;
+    
+    const propertiesPanel = document.getElementById('properties-panel');
+    
+    propertiesDragState.isDragging = true;
+    propertiesDragState.startX = e.clientX;
+    propertiesDragState.startY = e.clientY;
+    
+    // 获取当前面板的位置
+    const rect = propertiesPanel.getBoundingClientRect();
+    propertiesDragState.offsetX = e.clientX - rect.left;
+    propertiesDragState.offsetY = e.clientY - rect.top;
+    
+    // 添加拖动样式
+    propertiesPanel.classList.add('dragging');
+    
+    // 防止文本选择
+    e.preventDefault();
+}
+
+// 拖动属性面板
+function dragProperties(e) {
+    if (!propertiesDragState.isDragging) return;
+    
+    const propertiesPanel = document.getElementById('properties-panel');
+    
+    // 计算新位置
+    let newX = e.clientX - propertiesDragState.offsetX;
+    let newY = e.clientY - propertiesDragState.offsetY;
+    
+    // 限制拖动范围，确保面板不会移出屏幕
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const panelWidth = propertiesPanel.offsetWidth;
+    const panelHeight = propertiesPanel.offsetHeight;
+    
+    // 限制X轴位置（左右边界）
+    newX = Math.max(0, Math.min(newX, windowWidth - panelWidth));
+    
+    // 限制Y轴位置（上下边界）
+    newY = Math.max(0, Math.min(newY, windowHeight - panelHeight));
+    
+    // 设置新位置（取消居中定位，改用绝对定位）
+    propertiesPanel.style.left = `${newX}px`;
+    propertiesPanel.style.top = `${newY}px`;
+    propertiesPanel.style.transform = 'none';
+}
+
+// 停止拖动属性面板
+function stopPropertiesDrag() {
+    if (propertiesDragState.isDragging) {
+        const propertiesPanel = document.getElementById('properties-panel');
+        propertiesPanel.classList.remove('dragging');
+        propertiesDragState.isDragging = false;
+    }
+}

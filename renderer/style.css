@@ -877,7 +877,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     width: 320px;
-    max-height: 80vh;
+    max-height: 90vh;
     background-color: white;
     border: 2px solid #4CAF50;
     border-radius: 8px;
@@ -937,7 +937,7 @@ body {
 
 .properties-content {
     padding: 15px;
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
 }
 
@@ -1032,6 +1032,32 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+/* 属性输入框样式 */
+.property-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 14px;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.property-input:hover {
+    border-color: #4CAF50;
+}
+
+.property-input:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.property-input::placeholder {
+    color: #999;
 }
 
 /* 下拉菜单样式 */

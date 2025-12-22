@@ -139,6 +139,7 @@ function bindEventListeners() {
     const applyPropertiesBtn = document.getElementById('apply-properties-btn');
     const propertiesPanel = document.getElementById('properties-panel');
     const propertiesHeader = document.getElementById('properties-header');
+    const propertyNameInput = document.getElementById('property-name-input');
     
     if (togglePropertiesBtn) {
         togglePropertiesBtn.addEventListener('click', togglePropertiesPanel);
@@ -148,6 +149,14 @@ function bindEventListeners() {
     }
     if (applyPropertiesBtn) {
         applyPropertiesBtn.addEventListener('click', applySelectedProperties);
+    }
+    
+    // 属性名称输入框事件
+    if (propertyNameInput) {
+        propertyNameInput.addEventListener('input', (e) => {
+            currentProperties.name = e.target.value.trim() || null;
+            updatePropertiesDisplay();
+        });
     }
 
     // 属性按钮事件 - 使用更精确的事件委托
@@ -2030,6 +2039,8 @@ async function showCellOptions() {
     const propertiesPanel = document.getElementById('properties-panel');
     if (propertiesPanel.style.display === 'none' || propertiesPanel.style.display === '') {
         propertiesPanel.style.display = 'block';
+        // 初始化下拉菜单
+        await initializeDropdowns();
         updateStatus(`已选择 ${appState.combineState.selectedCells.length} 个单元格，请在属性面板中设置属性`);
     } else {
         updateStatus(`已选择 ${appState.combineState.selectedCells.length} 个单元格，请在属性面板中设置属性`);
@@ -2202,10 +2213,11 @@ document.addEventListener('DOMContentLoaded', initApp);
 
 // 属性面板相关功能
 let currentProperties = {
+    name: null,
     collision: null,
     navigation: null,
     splitType: null,
-    type: null
+    optionId: null
 };
 
 // 切换属性面板显示/隐藏
@@ -2255,7 +2267,7 @@ function handlePropertyButtonClick(e) {
         e.target.classList.add('active');
         
         // 设置快捷属性
-        currentProperties.type = e.target.dataset.type;
+        currentProperties.optionId = e.target.dataset.optionId;
         currentProperties.collision = parseInt(e.target.dataset.collision);
         currentProperties.navigation = parseInt(e.target.dataset.navigation);
         
@@ -2308,10 +2320,17 @@ function applySelectedProperties() {
         return;
     }
     
+    // 获取属性名称
+    const propertyNameInput = document.getElementById('property-name-input');
+    if (propertyNameInput) {
+        currentProperties.name = propertyNameInput.value.trim() || null;
+    }
+    
     // 检查是否有设置属性
-    if (currentProperties.collision === null && currentProperties.navigation === null && 
-        currentProperties.splitType === null && currentProperties.type === null) {
-        updateStatus('请先选择要应用的属性');
+    if (currentProperties.name === null && currentProperties.collision === null && 
+        currentProperties.navigation === null && currentProperties.splitType === null && 
+        currentProperties.type === null) {
+        updateStatus('请先选择要应用的属性或输入属性名称');
         return;
     }
     
@@ -2337,16 +2356,21 @@ function applySelectedProperties() {
     // 清除选择
     clearSelection();
     
-    updateStatus(`已为 ${selectedCoords.length} 个单元格应用属性`);
+    let statusMessage = `已为 ${selectedCoords.length} 个单元格应用属性`;
+    if (currentProperties.name) {
+        statusMessage += ` (名称: ${currentProperties.name})`;
+    }
+    updateStatus(statusMessage);
 }
 
 // 重置属性选择
 function resetProperties() {
     currentProperties = {
+        name: null,
         collision: null,
         navigation: null,
         splitType: null,
-        type: null
+        optionId: null
     };
     
     // 移除属性面板内所有按钮的active状态
@@ -2355,6 +2379,12 @@ function resetProperties() {
         propertiesPanel.querySelectorAll('.property-btn, .quick-type-btn').forEach(btn => {
             btn.classList.remove('active');
         });
+    }
+    
+    // 重置属性名称输入框
+    const propertyNameInput = document.getElementById('property-name-input');
+    if (propertyNameInput) {
+        propertyNameInput.value = '';
     }
     
     // 重置下拉菜单
@@ -2465,7 +2495,7 @@ function handleTypeChange(typeId) {
     }
     
     // 设置快捷属性
-    currentProperties.type = typeId;
+    currentProperties.optionId = typeId;
     
     if (selectedOption.dataset.collision !== '') {
         currentProperties.collision = parseInt(selectedOption.dataset.collision);

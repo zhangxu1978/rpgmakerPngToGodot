@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuRemoveBackground: (callback) => ipcRenderer.on('menu:remove-background', callback),
   onMenuSliceImage: (callback) => ipcRenderer.on('menu:slice-image', callback),
   onMenuCombineImages: (callback) => ipcRenderer.on('menu:combine-images', callback),
+  onCacheCleared: (callback) => ipcRenderer.on('cache:cleared', callback),
 
   // 移除事件监听
   removeAllListeners: () => {
@@ -30,5 +31,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu:remove-background');
     ipcRenderer.removeAllListeners('menu:slice-image');
     ipcRenderer.removeAllListeners('menu:combine-images');
+    ipcRenderer.removeAllListeners('cache:cleared');
   }
 });

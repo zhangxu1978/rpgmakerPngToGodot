@@ -87,6 +87,18 @@ function createWindow() {
           click: () => {
             mainWindow.webContents.toggleDevTools();
           }
+        },
+        {
+          label: '清除缓存',
+          click: () => {
+            mainWindow.webContents.session.clearCache().then(() => {
+              console.log('缓存已清除');
+              // 可选：显示通知给用户
+              mainWindow.webContents.send('cache:cleared');
+            }).catch((error) => {
+              console.error('清除缓存失败:', error);
+            });
+          }
         }
       ]
     }

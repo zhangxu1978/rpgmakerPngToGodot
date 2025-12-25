@@ -1878,6 +1878,79 @@ async function addCombineImages() {
 
             // 加载所有选中的图片
             for (const filePath of filePaths) {
+                // 检查是否存在同名JSON文件
+                const jsonPath = filePath.replace(/\.(png|jpg|jpeg|bmp)$/i, '.json');
+                const jsonExists = await window.electronAPI.checkFileExists(jsonPath);
+                
+                if (jsonExists) {
+                    // 询问用户是否继续编辑
+                    const shouldContinueEdit = confirm(`发现图片 "${filePath.split('/').pop()}" 的组合配置文件，是否继续编辑？\n\n点击"确定"：清空网格并加载配置\n点击"取消"：正常添加图片到素材库`);
+                    
+                    if (shouldContinueEdit) {
+                        // 加载图片
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = filePath;
+                        });
+                        
+                        try {
+                            // 读取JSON配置文件
+                            const jsonData = await window.electronAPI.readFile(jsonPath);
+                            const combineConfig = JSON.parse(jsonData);
+                            
+                            // 清空网格
+                            clearGrid();
+                            
+                            // 将图片放到网格的第一个格子 (0,0)
+                            const material = {
+                                id: `material_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                                src: img.src,
+                                name: filePath.split('/').pop(),
+                                originalImage: img
+                            };
+                            
+                            // 直接放置到第一个格子
+                            placeImageOnGrid(material, 0, 0);
+                            
+                            // 还原combineState配置
+                            if (combineConfig.cellWidth && combineConfig.cellHeight) {
+                                appState.combineState.grid.width = combineConfig.cellWidth;
+                                appState.combineState.grid.height = combineConfig.cellHeight;
+                            }
+                            if (combineConfig.cols && combineConfig.rows) {
+                                appState.combineState.grid.cols = combineConfig.cols;
+                                appState.combineState.grid.rows = combineConfig.rows;
+                            }
+                            if (combineConfig.cellData) {
+                                // 清空现有的cellData并还原配置
+                                appState.combineState.cellData = [];
+                                // 还原cellData
+                                if (Array.isArray(combineConfig.cellData)) {
+                                    appState.combineState.cellData = [...combineConfig.cellData];
+                                } else if (typeof combineConfig.cellData === 'object') {
+                                    // 如果是对象格式，转换为数组
+                                    appState.combineState.cellData = Object.values(combineConfig.cellData);
+                                }
+                            }
+                            
+                            // 更新网格显示
+                            updateGridSettings();
+                            
+                            updateStatus(`已加载组合配置并将图片放置到网格第一个格子`);
+                            continue; // 跳过正常的添加流程
+                            
+                        } catch (jsonError) {
+                            console.error('读取JSON配置失败:', jsonError);
+                            updateStatus('读取组合配置失败，将正常添加图片');
+                            // 继续执行正常的添加流程
+                        }
+                    }
+                }
+                
+                // 正常添加图片到素材库
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 await new Promise((resolve, reject) => {
@@ -2088,7 +2161,13 @@ function clearGrid() {
     // 清空已放置图片列表
     appState.combineState.placedImages = [];
     // 清空单元格数据和选择状态
-    appState.combineState.cellData.clear();
+    if (Array.isArray(appState.combineState.cellData)) {
+        appState.combineState.cellData = [];
+    } else if (appState.combineState.cellData && typeof appState.combineState.cellData.clear === 'function') {
+        appState.combineState.cellData.clear();
+    } else {
+        appState.combineState.cellData = [];
+    }
     
     clearSelection();
 

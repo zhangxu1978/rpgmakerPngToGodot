@@ -260,6 +260,17 @@ ipcMain.handle('fs:checkFileExists', async (event, filePath) => {
   }
 });
 
+// 读取文件
+ipcMain.handle('fs:readFile', async (event, filePath) => {
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    return data;
+  } catch (error) {
+    console.error('Failed to read file:', error);
+    throw error;
+  }
+});
+
 // 读取预设文件
 ipcMain.handle('fs:readPresetFile', async (event, presetName) => {
   try {

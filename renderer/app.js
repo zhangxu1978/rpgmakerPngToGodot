@@ -77,7 +77,10 @@ const elements = {
     gridCells: document.getElementById('grid-cells'),
     // 切图预览元素
     slicePreview: document.getElementById('slice-preview'),
-    statusText: document.getElementById('status-text')
+    statusText: document.getElementById('status-text'),
+    // 预设导出元素
+    presetSelect: document.getElementById('preset-select'),
+    exportPresetBtn: document.getElementById('export-preset-btn')
 };
 
 // 拖拽状态
@@ -132,6 +135,8 @@ function bindEventListeners() {
     elements.addSlicesBtn.addEventListener('click', addSlicesToMaterials);
     // 清空素材库事件
     elements.clearMaterialsBtn.addEventListener('click', clearMaterials);
+    // 预设导出事件
+    elements.exportPresetBtn.addEventListener('click', exportPresetImage);
 
     // 属性面板事件
     const togglePropertiesBtn = document.getElementById('toggle-properties-btn');
@@ -360,6 +365,22 @@ async function openImage() {
     try {
         const filePath = await window.electronAPI.openFile();
         if (filePath) {
+            // 检查是否存在同名JSON文件
+            const jsonPath = filePath.replace(/\.(png|jpg|jpeg|bmp)$/i, '.json');
+            const jsonExists = await window.electronAPI.checkFileExists(jsonPath);
+            
+            if (jsonExists) {
+                // 询问用户是否跳转到切图预览
+                const shouldJumpToSlicePreview = confirm('发现同名的切图记录文件，是否跳转到切图预览界面？\n\n点击"确定"跳转到切图预览\n点击"取消"正常打开图片');
+                
+                if (shouldJumpToSlicePreview) {
+                    // 加载图片和JSON数据，然后跳转到切图预览
+                    await loadImageWithSliceData(filePath, jsonPath);
+                    return;
+                }
+            }
+            
+            // 正常加载图片
             await loadImage(filePath);
         }
     } catch (error) {
@@ -388,6 +409,72 @@ function loadImage(filePath) {
         };
         img.src = filePath;
     });
+}
+
+// 加载图片并应用切图数据
+async function loadImageWithSliceData(filePath, jsonPath) {
+    try {
+        // 先加载图片
+        await loadImage(filePath);
+        
+        // 读取JSON数据
+        const jsonData = await window.electronAPI.readFile(jsonPath);
+        const sliceData = JSON.parse(jsonData);
+        
+        // 设置切图参数
+        elements.sliceWidth.value = sliceData.sliceWidth;
+        elements.sliceHeight.value = sliceData.sliceHeight;
+        
+        // 重建切图预览状态
+        const rows = sliceData.rows;
+        const cols = sliceData.cols;
+        
+        // 初始化图块信息
+        slicePreviewState.tiles = [];
+        slicePreviewState.mergeGroups = sliceData.mergeGroups || [];
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const tile = {
+                    row: row,
+                    col: col,
+                    merged: false,
+                    deleted: false,
+                    mergeGroup: null
+                };
+                
+                // 检查是否是删除的图块
+                if (sliceData.deletedTiles) {
+                    const isDeleted = sliceData.deletedTiles.some(deletedTile => 
+                        deletedTile.row === row && deletedTile.col === col
+                    );
+                    tile.deleted = isDeleted;
+                }
+                
+                // 检查是否是合并的图块
+                slicePreviewState.mergeGroups.forEach(group => {
+                    const isMerged = group.tiles.some(mergedTile => 
+                        mergedTile.row === row && mergedTile.col === col
+                    );
+                    if (isMerged) {
+                        tile.merged = true;
+                        tile.mergeGroup = group.id;
+                    }
+                });
+                
+                slicePreviewState.tiles.push(tile);
+            }
+        }
+        
+        // 显示切图预览界面
+        showSlicePreviewEditor(sliceData.sliceWidth, sliceData.sliceHeight, rows, cols);
+        
+        updateStatus(`已加载图片和切图数据，进入切图预览模式`);
+        
+    } catch (error) {
+        console.error('加载切图数据失败:', error);
+        updateStatus('加载切图数据失败，已正常打开图片');
+    }
 }
 
 
@@ -740,6 +827,21 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
         • 绿色边框：已合并的图块组 | 红色半透明：已删除的图块 | 蓝色半透明：当前选择的图块
     `;
 
+    // 添加错误显示区域
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'slice-preview-error';
+    errorDiv.className = 'error-display';
+    errorDiv.style.cssText = `
+        display: none;
+        background-color: #ff4444;
+        color: white;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-weight: bold;
+        border: 2px solid #cc0000;
+    `;
+
     // 创建预览画布容器（占据剩余空间，允许滚动）
     const previewContainer = document.createElement('div');
     previewContainer.style.cssText = `
@@ -795,6 +897,8 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
         gap: 15px;
         justify-content: center;
         padding: 10px 0;
+        flex-wrap: wrap;
+        align-items: center;
     `;
 
     const confirmBtn = document.createElement('button');
@@ -809,11 +913,28 @@ function showSlicePreviewEditor(sliceWidth, sliceHeight, rows, cols) {
     cancelBtn.style.cssText = 'padding: 12px 32px; font-size: 16px; font-weight: bold;';
     cancelBtn.onclick = closeSlicePreview;
 
+    // 添加预设导出组
+    const presetGroup = document.createElement('div');
+    presetGroup.className = 'preset-export-group';
+    presetGroup.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        border: 2px solid #4CAF50;
+    `;
+
+    
+
     actionsDiv.appendChild(confirmBtn);
     actionsDiv.appendChild(cancelBtn);
+    actionsDiv.appendChild(presetGroup);
 
     // 组装布局
     mainContainer.appendChild(instructionDiv);
+    mainContainer.appendChild(errorDiv);
     mainContainer.appendChild(previewContainer);
     mainContainer.appendChild(actionsDiv);
 
@@ -1251,14 +1372,18 @@ function showSliceResults(slices) {
     titleSpan.textContent = `已生成 ${slices.length} 个切片`;
     titleSpan.style.cssText = 'color: #fff; font-size: 16px; font-weight: bold;';
 
+    const actionsDiv = document.createElement('div');
+    actionsDiv.style.cssText = 'display: flex; gap: 10px; align-items: center;';
+
     const backBtn = document.createElement('button');
     backBtn.textContent = '← 返回主界面';
     backBtn.className = 'save-btn';
     backBtn.style.cssText = 'padding: 8px 16px; font-size: 14px;';
     backBtn.onclick = closeSlicePreview;
+    actionsDiv.appendChild(backBtn);
 
     headerDiv.appendChild(titleSpan);
-    headerDiv.appendChild(backBtn);
+    headerDiv.appendChild(actionsDiv);
     elements.sliceGrid.appendChild(headerDiv);
 
     // 创建切片预览项
@@ -1338,11 +1463,29 @@ async function saveAllSlices() {
             };
         });
 
-        // 调用批量保存API
-        const result = await window.electronAPI.saveSlices(appState.currentFilePath, slicesData);
+        // 准备JSON数据记录切片信息
+        const sliceWidth = parseInt(elements.sliceWidth.value);
+        const sliceHeight = parseInt(elements.sliceHeight.value);
+        const rows = Math.ceil(appState.canvas.height / sliceHeight);
+        const cols = Math.ceil(appState.canvas.width / sliceWidth);
+
+        const jsonData = {
+            sliceWidth: sliceWidth,
+            sliceHeight: sliceHeight,
+            rows: rows,
+            cols: cols,
+            mergeGroups: slicePreviewState.mergeGroups,
+            deletedTiles: slicePreviewState.tiles.filter(tile => tile.deleted).map(tile => ({
+                row: tile.row,
+                col: tile.col
+            }))
+        };
+
+        // 调用批量保存API（包含JSON数据）
+        const result = await window.electronAPI.saveSlicesWithJson(appState.currentFilePath, slicesData, jsonData);
 
         if (result.success) {
-            updateStatus(`已保存 ${result.savedCount} 个切片到: ${result.outputDir}`);
+            updateStatus(`已保存 ${result.savedCount} 个切片和JSON记录到: ${result.outputDir}`);
         } else {
             updateStatus(`保存失败: ${result.error}`);
         }
@@ -2241,21 +2384,40 @@ function handlePropertyButtonClick(e) {
         const group = e.target.closest('.property-group');
         const buttons = group.querySelectorAll('.property-btn');
         
-        // 移除同组其他按钮的active状态
-        buttons.forEach(btn => btn.classList.remove('active'));
+        // 检查当前按钮是否已经选中
+        const isCurrentlyActive = e.target.classList.contains('active');
         
-        // 激活当前按钮
-        e.target.classList.add('active');
-        
-        // 更新当前属性
-        if (e.target.dataset.collision !== undefined) {
-            currentProperties.collision = parseInt(e.target.dataset.collision);
-        }
-        if (e.target.dataset.navigation !== undefined) {
-            currentProperties.navigation = parseInt(e.target.dataset.navigation);
-        }
-        if (e.target.dataset.splitType !== undefined) {
-            currentProperties.splitType = e.target.dataset.splitType;
+        if (isCurrentlyActive) {
+            // 如果当前按钮已选中，取消选中
+            e.target.classList.remove('active');
+            
+            // 重置对应的属性为null
+            if (e.target.dataset.collision !== undefined) {
+                currentProperties.collision = null;
+            }
+            if (e.target.dataset.navigation !== undefined) {
+                currentProperties.navigation = null;
+            }
+            if (e.target.dataset.splitType !== undefined) {
+                currentProperties.splitType = null;
+            }
+        } else {
+            // 移除同组其他按钮的active状态
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // 激活当前按钮
+            e.target.classList.add('active');
+            
+            // 更新当前属性
+            if (e.target.dataset.collision !== undefined) {
+                currentProperties.collision = parseInt(e.target.dataset.collision);
+            }
+            if (e.target.dataset.navigation !== undefined) {
+                currentProperties.navigation = parseInt(e.target.dataset.navigation);
+            }
+            if (e.target.dataset.splitType !== undefined) {
+                currentProperties.splitType = e.target.dataset.splitType;
+            }
         }
         
         updatePropertiesDisplay();
@@ -2285,7 +2447,7 @@ function updatePropertyButtonStates() {
     // 更新碰撞按钮（只在属性面板内查找）
     propertiesPanel.querySelectorAll('.property-btn[data-collision]').forEach(btn => {
         btn.classList.remove('active');
-        if (parseInt(btn.dataset.collision) === currentProperties.collision) {
+        if (currentProperties.collision !== null && parseInt(btn.dataset.collision) === currentProperties.collision) {
             btn.classList.add('active');
         }
     });
@@ -2293,7 +2455,7 @@ function updatePropertyButtonStates() {
     // 更新导航按钮（只在属性面板内查找）
     propertiesPanel.querySelectorAll('.property-btn[data-navigation]').forEach(btn => {
         btn.classList.remove('active');
-        if (parseInt(btn.dataset.navigation) === currentProperties.navigation) {
+        if (currentProperties.navigation !== null && parseInt(btn.dataset.navigation) === currentProperties.navigation) {
             btn.classList.add('active');
         }
     });
@@ -2301,7 +2463,7 @@ function updatePropertyButtonStates() {
     // 更新拆分类型按钮（只在属性面板内查找）
     propertiesPanel.querySelectorAll('.property-btn[data-split-type]').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.dataset.splitType === currentProperties.splitType) {
+        if (currentProperties.splitType !== null && btn.dataset.splitType === currentProperties.splitType) {
             btn.classList.add('active');
         }
     });
@@ -2345,10 +2507,14 @@ function applySelectedProperties() {
         appState.combineState.cellData = [];
     }
     
-    // 创建属性对象
+    // 创建属性对象，将null值转换为空字符串
     const propertyData = {
         cells: selectedCoords,
-        ...currentProperties
+        name: currentProperties.name || "",
+        collision: currentProperties.collision !== null ? currentProperties.collision : "",
+        navigation: currentProperties.navigation !== null ? currentProperties.navigation : "",
+        splitType: currentProperties.splitType || "",
+        optionId: currentProperties.optionId || ""
     };
     
     appState.combineState.cellData.push(propertyData);
@@ -2491,6 +2657,15 @@ function handleTypeChange(typeId) {
     const selectedOption = typeSelect.querySelector(`option[value="${typeId}"]`);
     
     if (!selectedOption || !typeId) {
+        // 如果没有选择或选择了空值，重置属性
+        currentProperties.optionId = null;
+        currentProperties.collision = null;
+        currentProperties.navigation = null;
+        currentProperties.splitType = null;
+        
+        // 同步更新其他按钮状态
+        updatePropertyButtonStates();
+        updatePropertiesDisplay();
         return;
     }
     
@@ -2499,12 +2674,18 @@ function handleTypeChange(typeId) {
     
     if (selectedOption.dataset.collision !== '') {
         currentProperties.collision = parseInt(selectedOption.dataset.collision);
+    } else {
+        currentProperties.collision = null;
     }
     if (selectedOption.dataset.navigation !== '') {
         currentProperties.navigation = parseInt(selectedOption.dataset.navigation);
+    } else {
+        currentProperties.navigation = null;
     }
     if (selectedOption.dataset.splitType) {
         currentProperties.splitType = selectedOption.dataset.splitType;
+    } else {
+        currentProperties.splitType = null;
     }
     
     // 同步更新其他按钮状态
@@ -2572,4 +2753,177 @@ function stopPropertiesDrag() {
         propertiesPanel.classList.remove('dragging');
         propertiesDragState.isDragging = false;
     }
+}
+
+// 预设导出功能
+async function exportPresetImage() {
+    const presetName = elements.presetSelect.value;
+    if (!presetName) {
+        showSlicePreviewError('请选择一个预设');
+        return;
+    }
+
+    if (appState.slices.length === 0) {
+        showSlicePreviewError('没有可用的切片，请先进行切图');
+        return;
+    }
+
+    try {
+        updateStatus(`正在导出${presetName}预设图片...`);
+        console.log(`开始导出预设: ${presetName}`);
+
+        // 通过主进程读取预设JSON文件
+        console.log(`尝试加载预设文件: ${presetName}.json`);
+        const result = await window.electronAPI.readPresetFile(presetName);
+        
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        
+        const presetData = result.data;
+        console.log('预设数据:', presetData);
+        console.log('预设文件路径:', result.path);
+
+        // 验证预设数据
+        if (!presetData.cols || !presetData.rows || !presetData.cellData) {
+            console.error('预设数据验证失败:', {
+                cols: presetData.cols,
+                rows: presetData.rows,
+                cellDataExists: !!presetData.cellData,
+                cellDataLength: presetData.cellData ? presetData.cellData.length : 0
+            });
+            throw new Error(`预设文件格式不正确: 缺少必要字段 (cols: ${!!presetData.cols}, rows: ${!!presetData.rows}, cellData: ${!!presetData.cellData})`);
+        }
+
+        // 创建输出画布
+        const outputCanvas = document.createElement('canvas');
+        const sliceWidth = parseInt(elements.sliceWidth.value);
+        const sliceHeight = parseInt(elements.sliceHeight.value);
+        
+        // 计算每个大方块的尺寸（2x2的小方块组合）
+        const cellWidth = sliceWidth * 2;
+        const cellHeight = sliceHeight * 2;
+        
+        outputCanvas.width = presetData.cols * cellWidth;
+        outputCanvas.height = presetData.rows * cellHeight;
+        const outputCtx = outputCanvas.getContext('2d');
+
+        // 清空画布
+        outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+        // 创建切片位置映射表，用于快速查找
+        const sliceMap = new Map();
+        appState.slices.forEach(slice => {
+            const key = `${slice.row}_${slice.col}`;
+            sliceMap.set(key, slice);
+        });
+
+        // 遍历预设数据，组合图片
+        presetData.cellData.forEach((cellIndices, index) => {
+            if (!Array.isArray(cellIndices) || cellIndices.length !== 4) {
+                console.warn(`预设数据第${index}项格式不正确，跳过`);
+                return;
+            }
+
+            // 计算当前大方块在输出图片中的位置
+            const outputCol = index % presetData.cols;
+            const outputRow = Math.floor(index / presetData.cols);
+            const outputX = outputCol * cellWidth;
+            const outputY = outputRow * cellHeight;
+
+            // 绘制四个小方块组成一个大方块
+            cellIndices.forEach((sliceIndex, subIndex) => {
+                // 将索引转换为从0开始（JSON中是从1开始）
+                const actualSliceIndex = sliceIndex - 1;
+                
+                // 计算原始切图的行列位置（假设是按行优先顺序排列）
+                const originalCols = Math.ceil(appState.canvas.width / sliceWidth);
+                const sliceRow = Math.floor(actualSliceIndex / originalCols);
+                const sliceCol = actualSliceIndex % originalCols;
+                
+                // 在切片映射表中查找对应的切片
+                const sliceKey = `${sliceRow}_${sliceCol}`;
+                const slice = sliceMap.get(sliceKey);
+                
+                if (!slice || !slice.canvas) {
+                    // 如果找不到对应位置的切片，尝试直接使用索引
+                    const fallbackSlice = appState.slices[actualSliceIndex];
+                    if (fallbackSlice && fallbackSlice.canvas) {
+                        // 使用备用切片
+                        const subCol = subIndex % 2;
+                        const subRow = Math.floor(subIndex / 2);
+                        const subX = outputX + subCol * sliceWidth;
+                        const subY = outputY + subRow * sliceHeight;
+                        outputCtx.drawImage(fallbackSlice.canvas, subX, subY, sliceWidth, sliceHeight);
+                    } else {
+                        console.warn(`切片${sliceIndex}(位置${sliceRow},${sliceCol})不存在，跳过`);
+                    }
+                    return;
+                }
+
+                // 计算小方块在大方块中的位置（2x2布局）
+                const subCol = subIndex % 2;
+                const subRow = Math.floor(subIndex / 2);
+                const subX = outputX + subCol * sliceWidth;
+                const subY = outputY + subRow * sliceHeight;
+
+                // 绘制切片到输出画布
+                outputCtx.drawImage(slice.canvas, subX, subY, sliceWidth, sliceHeight);
+            });
+        });
+
+        // 导出图片
+        const dataURL = outputCanvas.toDataURL('image/png');
+        const filePath = await window.electronAPI.saveFile({
+            defaultPath: `${presetName}_export.png`
+        });
+
+        if (filePath) {
+            await saveDataURLToFile(dataURL, filePath);
+            updateStatus(`${presetName}预设图片导出完成: ${filePath}`);
+        }
+
+    } catch (error) {
+        console.error('预设导出失败:', error);
+        console.error('错误堆栈:', error.stack);
+        
+        // 使用新的错误显示函数
+        showSlicePreviewError(error.message);
+    }
+}
+
+// 结果页面的预设导出功能
+async function exportPresetImageWithSelect(selectElement) {
+    const presetName = selectElement.value;
+    if (!presetName) {
+        showSlicePreviewError('请选择一个预设');
+        return;
+    }
+
+    // 临时设置主选择器的值，然后调用主导出函数
+    const originalValue = elements.presetSelect.value;
+    elements.presetSelect.value = presetName;
+    await exportPresetImage();
+    elements.presetSelect.value = originalValue;
+}
+
+// 在切图预览界面显示错误信息
+function showSlicePreviewError(message) {
+    // 尝试在预览界面显示错误
+    const errorDiv = document.getElementById('slice-preview-error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    }
+    
+    // 同时显示弹窗
+    alert(`错误: ${message}`);
+    
+    // 更新状态栏（如果可见）
+    updateStatus(message);
 }

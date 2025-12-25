@@ -79,6 +79,14 @@ function createWindow() {
             { label: '缩小', role: 'zoomOut' },
             { label: '重置缩放', role: 'resetZoom' }
           ]
+        },
+        { type: 'separator' },
+        {
+          label: '开发者工具',
+          accelerator: 'F12',
+          click: () => {
+            mainWindow.webContents.toggleDevTools();
+          }
         }
       ]
     }
@@ -87,8 +95,14 @@ function createWindow() {
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
 
-  // 开发模式下打开调试工具
-  // mainWindow.webContents.openDevTools();
+  // 添加快捷键支持
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F12 或 Ctrl+Shift+I 打开开发者工具
+    if (input.key === 'F12' || 
+        (input.control && input.shift && input.key === 'I')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 }
 
 // 应用就绪时创建窗口
@@ -158,8 +172,8 @@ ipcMain.handle('fs:saveDataURL', async (event, filePath, dataURL) => {
   }
 });
 
-// 处理批量保存切片
-ipcMain.handle('fs:saveSlices', async (event, sourceFilePath, slices) => {
+// 处理批量保存切片（包含JSON数据）
+ipcMain.handle('fs:saveSlicesWithJson', async (event, sourceFilePath, slices, jsonData) => {
   try {
     // 获取源文件的目录和文件名（不含扩展名）
     const sourceDir = path.dirname(sourceFilePath);
@@ -187,13 +201,18 @@ ipcMain.handle('fs:saveSlices', async (event, sourceFilePath, slices) => {
       savedCount++;
     }
 
+    // 保存同名JSON文件到源文件同目录
+    const jsonFilePath = path.join(sourceDir, `${sourceFileName}.json`);
+    fs.writeFileSync(jsonFilePath, JSON.stringify(jsonData, null, 2), 'utf8');
+
     return {
       success: true,
       outputDir: outputDir,
-      savedCount: savedCount
+      savedCount: savedCount,
+      jsonPath: jsonFilePath
     };
   } catch (error) {
-    console.error('Failed to save slices:', error);
+    console.error('Failed to save slices with JSON:', error);
     return {
       success: false,
       error: error.message
@@ -215,6 +234,41 @@ ipcMain.handle('fs:writeFile', async (event, filePath, data) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to write file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 检查文件是否存在
+ipcMain.handle('fs:checkFileExists', async (event, filePath) => {
+  try {
+    return fs.existsSync(filePath);
+  } catch (error) {
+    console.error('Failed to check file existence:', error);
+    return false;
+  }
+});
+
+// 读取预设文件
+ipcMain.handle('fs:readPresetFile', async (event, presetName) => {
+  try {
+    // 尝试多个可能的路径
+    const possiblePaths = [
+      path.join(__dirname, 'renderer', `${presetName}.json`),
+      path.join(__dirname, `${presetName}.json`),
+      path.join(process.cwd(), 'renderer', `${presetName}.json`),
+      path.join(process.cwd(), `${presetName}.json`)
+    ];
+    
+    for (const filePath of possiblePaths) {
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf8');
+        return { success: true, data: JSON.parse(data), path: filePath };
+      }
+    }
+    
+    throw new Error(`预设文件 ${presetName}.json 未找到，已尝试路径: ${possiblePaths.join(', ')}`);
+  } catch (error) {
+    console.error('Failed to read preset file:', error);
     return { success: false, error: error.message };
   }
 });

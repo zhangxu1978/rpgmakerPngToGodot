@@ -1,5 +1,6 @@
 *.cmd
 /.trae/
 /dist/
+/img/
 /node_modules/
 *.png

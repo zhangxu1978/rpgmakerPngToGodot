@@ -730,12 +730,46 @@ body {
     display: flex;
     gap: 15px;
     justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .slice-preview-actions .tool-btn {
     padding: 12px 32px;
     font-size: 16px;
     font-weight: bold;
+}
+
+/* 预设导出组样式 */
+.preset-export-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    border: 2px solid #4CAF50;
+}
+
+.preset-export-group label {
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.preset-select {
+    padding: 8px 12px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #333;
+    color: #fff;
+    font-size: 14px;
+    min-width: 120px;
+}
+
+.preset-select:focus {
+    outline: none;
+    border-color: #4CAF50;
 }
 
 /* 图块操作菜单样式 */

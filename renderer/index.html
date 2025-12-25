@@ -183,7 +183,19 @@
                     <h3>切图预览</h3>
                 </div>
                 <div class="slice-grid" id="slice-grid"></div>
-                <button id="save-slices-btn" class="save-btn">保存所有切片</button>
+                <div class="slice-preview-actions">
+                    <button id="save-slices-btn" class="save-btn">保存所有切片</button>
+                    <div class="preset-export-group">
+                        <label>预设导出:</label>
+                        <select id="preset-select" class="preset-select">
+                            <option value="">选择预设</option>
+                            <option value="9tile">9tile</option>
+                            <option value="16tile">16tile</option>
+                            <option value="48tile">48tile</option>
+                        </select>
+                        <button id="export-preset-btn" class="tool-btn">导出预设图片</button>
+                    </div>
+                </div>
             </div>
         </div>
 

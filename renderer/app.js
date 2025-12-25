@@ -1904,25 +1904,20 @@ async function addCombineImages() {
                             // 清空网格
                             clearGrid();
                             
-                            // 将图片放到网格的第一个格子 (0,0)
-                            const material = {
-                                id: `material_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                                src: img.src,
-                                name: filePath.split('/').pop(),
-                                originalImage: img
-                            };
-                            
-                            // 直接放置到第一个格子
-                            placeImageOnGrid(material, 0, 0);
-                            
-                            // 还原combineState配置
+                            // 先还原网格配置
                             if (combineConfig.cellWidth && combineConfig.cellHeight) {
                                 appState.combineState.grid.width = combineConfig.cellWidth;
                                 appState.combineState.grid.height = combineConfig.cellHeight;
+                                // 同时更新输入框的值
+                                elements.gridWidth.value = combineConfig.cellWidth;
+                                elements.gridHeight.value = combineConfig.cellHeight;
                             }
                             if (combineConfig.cols && combineConfig.rows) {
                                 appState.combineState.grid.cols = combineConfig.cols;
                                 appState.combineState.grid.rows = combineConfig.rows;
+                                // 同时更新输入框的值
+                                elements.gridCols.value = combineConfig.cols;
+                                elements.gridRows.value = combineConfig.rows;
                             }
                             if (combineConfig.cellData) {
                                 // 清空现有的cellData并还原配置
@@ -1938,6 +1933,17 @@ async function addCombineImages() {
                             
                             // 更新网格显示
                             updateGridSettings();
+                            
+                            // 将图片放到网格的第一个格子 (0,0)
+                            const material = {
+                                id: `material_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                                src: img.src,
+                                name: filePath.split('/').pop(),
+                                originalImage: img
+                            };
+                            
+                            // 直接放置到第一个格子
+                            placeImageOnGrid(material, 0, 0);
                             
                             updateStatus(`已加载组合配置并将图片放置到网格第一个格子`);
                             continue; // 跳过正常的添加流程

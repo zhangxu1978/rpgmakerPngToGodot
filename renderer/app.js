@@ -213,6 +213,11 @@ function bindEventListeners() {
         window.electronAPI.onMenuRemoveBackground(removeBackground);
         window.electronAPI.onMenuSliceImage(sliceImage);
         window.electronAPI.onMenuCombineImages(toggleCombineMode);
+        window.electronAPI.onCacheCleared(() => {
+            updateStatus('缓存已清除');
+            // 可选：添加更多的清理操作，比如清除本地存储的数据
+            console.log('应用缓存已清除');
+        });
     }
 }
 

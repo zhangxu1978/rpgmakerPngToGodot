@@ -2344,8 +2344,8 @@ async function handleCellOptionSelect(optionId) {
     
     appState.combineState.cellData.push({
         optionId: optionId,
-        collision: collision,
-        navigation: navigation,
+        collision: (collision==null||collision==""?0:collision),
+        navigation: (navigation==null||navigation==""?0:navigation),
         splitType: splitType,
         cells: selectedCoords
     });

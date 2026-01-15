@@ -120,6 +120,50 @@
     {
         "id": "building",
         "label": "建筑",
-        "submenu": []
+        "submenu": [
+{
+                "id": "ground",
+                "label": "地面",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wall", 
+                "label": "墙体",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wallTop", 
+                "label": "墙顶",
+                "collision": 1,
+                "navigation": 0,
+                "splitType": "47tile"
+            },
+            { 
+                "id": "wallDecoration", 
+                "label": "墙体装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "groundDecoration", 
+                "label": "地面装饰",
+                "collision": 0,
+                "navigation": 0,
+                "splitType": "9tile"
+            },
+            { 
+                "id": "event", 
+                "label": "事件",
+                "collision": 0,
+                "navigation": 1,
+                "splitType": "16tile"
+            }
+
+        ]
     }
 ]

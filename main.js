@@ -81,15 +81,20 @@ function createWindow() {
           ]
         },
         { type: 'separator' },
-        {
-          label: '开发者工具',
+        { label: '开发者工具',
           accelerator: 'F12',
           click: () => {
             mainWindow.webContents.toggleDevTools();
           }
         },
-        {
-          label: '清除缓存',
+        { label: '隐藏工具栏',
+          type: 'checkbox',
+          checked: false,
+          click: (menuItem) => {
+            mainWindow.webContents.send('menu:toggle-toolbar', menuItem.checked);
+          }
+        },
+        { label: '清除缓存',
           click: () => {
             mainWindow.webContents.session.clearCache().then(() => {
               console.log('缓存已清除');
@@ -127,6 +132,25 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+// 监听工具栏状态更新事件，更新菜单项勾选状态
+ipcMain.on('toolbar:update-menu-state', (event, isHidden) => {
+  const mainWindow = BrowserWindow.getAllWindows()[0];
+  if (mainWindow) {
+    // 获取当前菜单
+    const menu = Menu.getApplicationMenu();
+    if (menu) {
+      // 找到视图菜单下的隐藏工具栏菜单项
+      const viewMenu = menu.items.find(item => item.label === '视图');
+      if (viewMenu && viewMenu.submenu) {
+        const toggleToolbarItem = viewMenu.submenu.items.find(item => item.label === '隐藏工具栏');
+        if (toggleToolbarItem) {
+          toggleToolbarItem.checked = isHidden;
+        }
+      }
+    }
+  }
 });
 
 // 所有窗口关闭时退出应用（除了macOS）

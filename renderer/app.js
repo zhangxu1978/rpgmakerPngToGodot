@@ -6,6 +6,20 @@ const appState = {
     ctx: null,
     slices: [],
     tolerance: 20,
+    // 去背景增强功能状态
+    bgRemovalState: {
+        mode: 'none', // 'none', 'selecting', 'eraser', 'brush'
+        selectedPixels: null, // 选中的像素区域（ImageData格式）
+        history: [], // 操作历史
+        historyIndex: -1, // 当前历史位置
+        maxHistory: 20, // 最大历史记录数
+        toolSize: 10, // 工具大小（橡皮擦/画笔）
+        isDrawing: false, // 是否正在绘制
+        lastX: 0,
+        lastY: 0,
+        // 性能优化：缓存棋盘格画布
+        checkerboardCanvas: null
+    },
     // 组合图片状态
     combineState: {
         materials: [], // 所有可用素材（上传的图片和切片）
@@ -31,6 +45,7 @@ const appState = {
 const elements = {
     canvas: document.getElementById('main-canvas'),
     placeholder: document.getElementById('canvas-placeholder'),
+    toolbar: document.querySelector('.toolbar'),
     openBtn: document.getElementById('open-btn'),
     exportBtn: document.getElementById('export-btn'),
     resizeBtn: document.getElementById('resize-btn'),
@@ -40,6 +55,19 @@ const elements = {
     removeBgBtn: document.getElementById('remove-bg-btn'),
     toleranceSlider: document.getElementById('tolerance-slider'),
     toleranceValue: document.querySelector('.tolerance-value'),
+    // 去背景增强工具
+    bgToolsPanel: document.getElementById('bg-tools-panel'),
+    expandSelectionBtn: document.getElementById('expand-selection-btn'),
+    shrinkSelectionBtn: document.getElementById('shrink-selection-btn'),
+    deleteSelectionBtn: document.getElementById('delete-selection-btn'),
+    cancelSelectionBtn: document.getElementById('cancel-selection-btn'),
+    eraserBtn: document.getElementById('eraser-btn'),
+    brushBtn: document.getElementById('brush-btn'),
+    toolSizeSlider: document.getElementById('tool-size-slider'),
+    toolSizeValue: document.getElementById('tool-size-value'),
+    undoBtn: document.getElementById('undo-btn'),
+    redoBtn: document.getElementById('redo-btn'),
+    finishEditBtn: document.getElementById('finish-edit-btn'),
     sliceBtn: document.getElementById('slice-btn'),
     autoMarkBtn: document.getElementById('auto-mark-btn'),
     sliceWidth: document.getElementById('slice-width'),
@@ -201,6 +229,47 @@ function bindEventListeners() {
         updateToleranceValue();
     });
 
+    // 去背景增强工具事件
+    if (elements.expandSelectionBtn) {
+        elements.expandSelectionBtn.addEventListener('click', expandSelection);
+    }
+    if (elements.shrinkSelectionBtn) {
+        elements.shrinkSelectionBtn.addEventListener('click', shrinkSelection);
+    }
+    if (elements.deleteSelectionBtn) {
+        elements.deleteSelectionBtn.addEventListener('click', deleteSelection);
+    }
+    if (elements.cancelSelectionBtn) {
+        elements.cancelSelectionBtn.addEventListener('click', cancelSelection);
+    }
+    if (elements.eraserBtn) {
+        elements.eraserBtn.addEventListener('click', activateEraser);
+    }
+    if (elements.brushBtn) {
+        elements.brushBtn.addEventListener('click', activateBrush);
+    }
+    if (elements.toolSizeSlider) {
+        elements.toolSizeSlider.addEventListener('input', (e) => {
+            appState.bgRemovalState.toolSize = parseInt(e.target.value);
+            updateToolSizeValue();
+        });
+    }
+    if (elements.undoBtn) {
+        elements.undoBtn.addEventListener('click', undo);
+    }
+    if (elements.redoBtn) {
+        elements.redoBtn.addEventListener('click', redo);
+    }
+    if (elements.finishEditBtn) {
+        elements.finishEditBtn.addEventListener('click', finishBgEdit);
+    }
+
+    // 画布绘制事件（用于橡皮擦和画笔）
+    elements.canvas.addEventListener('mousedown', handleCanvasMouseDown);
+    elements.canvas.addEventListener('mousemove', handleCanvasMouseMove);
+    elements.canvas.addEventListener('mouseup', handleCanvasMouseUp);
+    elements.canvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+
     // 拖拽事件
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('drop', handleDrop);
@@ -213,11 +282,25 @@ function bindEventListeners() {
         window.electronAPI.onMenuRemoveBackground(removeBackground);
         window.electronAPI.onMenuSliceImage(sliceImage);
         window.electronAPI.onMenuCombineImages(toggleCombineMode);
+        window.electronAPI.onMenuToggleToolbar(toggleToolbar);
         window.electronAPI.onCacheCleared(() => {
             updateStatus('缓存已清除');
             // 可选：添加更多的清理操作，比如清除本地存储的数据
             console.log('应用缓存已清除');
         });
+    }
+}
+
+// 切换工具栏显示状态
+function toggleToolbar(show) {
+    if (elements.toolbar) {
+        elements.toolbar.style.display = show ? 'none' : 'flex';
+        updateStatus(show ? '工具栏已隐藏' : '工具栏已显示');
+        
+        // 向主进程发送工具栏状态更新
+        if (window.electronAPI) {
+            window.electronAPI.updateToolbarMenuState(show);
+        }
     }
 }
 
@@ -492,6 +575,9 @@ function drawImageToCanvas(img) {
     // 清空画布
     appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
 
+    // 绘制棋盘格背景
+    drawCheckerboard();
+
     // 绘制图片
     appState.ctx.drawImage(img, 0, 0);
 
@@ -705,20 +791,23 @@ function resizeImageWithNative(targetWidth, targetHeight) {
 
 
 
-// 去除背景
+// 去除背景 - 改进版：先选择背景区域
 function removeBackground() {
     if (!appState.currentImage) {
         updateStatus('请先打开图片');
         return;
     }
 
-    updateStatus('正在去除背景...');
+    // 保存当前状态到历史
+    saveToHistory();
+
+    updateStatus('正在选择背景区域...');
 
     // 获取画布像素数据
     const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
     const data = imageData.data;
 
-    // 获取左上角像素作为背景色（可以改进为点击选择背景色）
+    // 获取左上角像素作为背景色
     const bgR = data[0];
     const bgG = data[1];
     const bgB = data[2];
@@ -726,7 +815,10 @@ function removeBackground() {
     // 容差转成RGB差值范围
     const tolerance = appState.tolerance;
 
-    // 遍历所有像素，将接近背景色的像素设为透明
+    // 创建选区标记数组
+    const selectionMask = new Uint8Array(appState.canvas.width * appState.canvas.height);
+
+    // 遍历所有像素，标记接近背景色的像素
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -739,16 +831,523 @@ function removeBackground() {
             Math.pow(b - bgB, 2)
         );
 
-        // 如果距离小于容差，设置为透明
+        // 如果距离小于容差，标记为选中
+        const pixelIndex = i / 4;
         if (distance < tolerance) {
-            data[i + 3] = 0; // 设置alpha通道为0
+            selectionMask[pixelIndex] = 1;
         }
     }
 
-    // 将处理后的数据放回画布
-    appState.ctx.putImageData(imageData, 0, 0);
+    // 保存选区
+    appState.bgRemovalState.selectedPixels = selectionMask;
+    appState.bgRemovalState.mode = 'selecting';
 
-    updateStatus('背景去除完成');
+    // 显示选区（用半透明红色覆盖）
+    showSelection();
+
+    // 显示工具面板
+    showBgToolsPanel();
+
+    updateStatus('已选择背景区域，可以调整选区或直接删除');
+}
+
+// 显示选区
+function showSelection() {
+    if (!appState.bgRemovalState.selectedPixels) return;
+
+    // 获取当前画布数据
+    const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    const data = imageData.data;
+    const mask = appState.bgRemovalState.selectedPixels;
+
+    // 在选中的像素上叠加半透明红色
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) {
+            const dataIndex = i * 4;
+            // 混合红色
+            data[dataIndex] = Math.min(255, data[dataIndex] + 100);
+            data[dataIndex + 1] = Math.max(0, data[dataIndex + 1] - 50);
+            data[dataIndex + 2] = Math.max(0, data[dataIndex + 2] - 50);
+        }
+    }
+    
+    // 绘制带选区标记的图像
+    appState.ctx.putImageData(imageData, 0, 0);
+}
+
+// 显示去背景工具面板
+function showBgToolsPanel() {
+    if (elements.bgToolsPanel) {
+        elements.bgToolsPanel.style.display = 'flex';
+    }
+}
+
+// 隐藏去背景工具面板
+function hideBgToolsPanel() {
+    if (elements.bgToolsPanel) {
+        elements.bgToolsPanel.style.display = 'none';
+    }
+}
+
+// 扩展选区
+function expandSelection() {
+    if (!appState.bgRemovalState.selectedPixels) return;
+
+    const width = appState.canvas.width;
+    const height = appState.canvas.height;
+    const mask = appState.bgRemovalState.selectedPixels;
+    const newMask = new Uint8Array(mask.length);
+
+    // 复制原始选区
+    newMask.set(mask);
+
+    // 对每个选中的像素，扩展到周围8个像素
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const index = y * width + x;
+            if (mask[index] === 1) {
+                // 扩展到周围8个像素
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nIndex = ny * width + nx;
+                            newMask[nIndex] = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    appState.bgRemovalState.selectedPixels = newMask;
+    
+    // 重绘原始图像
+    redrawCanvas();
+    
+    // 显示新选区
+    showSelection();
+    
+    updateStatus('选区已扩展');
+}
+
+// 收缩选区
+function shrinkSelection() {
+    if (!appState.bgRemovalState.selectedPixels) return;
+
+    const width = appState.canvas.width;
+    const height = appState.canvas.height;
+    const mask = appState.bgRemovalState.selectedPixels;
+    const newMask = new Uint8Array(mask.length);
+
+    // 对每个选中的像素，检查周围是否有未选中的像素
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const index = y * width + x;
+            if (mask[index] === 1) {
+                // 检查周围8个像素
+                let hasUnselected = false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nIndex = ny * width + nx;
+                            if (mask[nIndex] === 0) {
+                                hasUnselected = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasUnselected) break;
+                }
+                // 如果周围没有未选中的像素，保留选中状态
+                if (!hasUnselected) {
+                    newMask[index] = 1;
+                }
+            }
+        }
+    }
+
+    appState.bgRemovalState.selectedPixels = newMask;
+    
+    // 重绘原始图像
+    redrawCanvas();
+    
+    // 显示新选区
+    showSelection();
+    
+    updateStatus('选区已收缩');
+}
+
+// 删除选区
+function deleteSelection() {
+    if (!appState.bgRemovalState.selectedPixels) return;
+
+    saveToHistory();
+
+    const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    const data = imageData.data;
+    const mask = appState.bgRemovalState.selectedPixels;
+
+    // 将选中的像素设为透明
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) {
+            const dataIndex = i * 4;
+            data[dataIndex + 3] = 0; // 设置alpha通道为0
+        }
+    }
+
+    // 创建临时画布来处理图像
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = appState.canvas.width;
+    tempCanvas.height = appState.canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // 将处理后的图像数据放到临时画布
+    tempCtx.putImageData(imageData, 0, 0);
+    
+    // 清空主画布并绘制棋盘格
+    appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+    drawCheckerboard();
+    
+    // 确保合成模式是默认值 source-over，以正确保留透明度
+    appState.ctx.globalCompositeOperation = 'source-over';
+    
+    // 将临时画布的内容绘制到主画布（保留透明度）
+    appState.ctx.drawImage(tempCanvas, 0, 0);
+
+    // 清除选区
+    appState.bgRemovalState.selectedPixels = null;
+    appState.bgRemovalState.mode = 'none';
+
+    updateStatus('已删除选中区域');
+}
+
+// 取消选区
+function cancelSelection() {
+    appState.bgRemovalState.selectedPixels = null;
+    appState.bgRemovalState.mode = 'none';
+    redrawCanvasWithAlpha();
+    hideBgToolsPanel();
+    updateStatus('已取消选区');
+}
+
+// 激活橡皮擦工具
+function activateEraser() {
+    appState.bgRemovalState.mode = 'eraser';
+    appState.bgRemovalState.selectedPixels = null;
+    elements.canvas.style.cursor = 'crosshair';
+    
+    // 更新按钮状态
+    if (elements.eraserBtn) elements.eraserBtn.classList.add('active');
+    if (elements.brushBtn) elements.brushBtn.classList.remove('active');
+    
+    // 保存当前状态（在开始使用工具前保存一次）
+    saveToHistory();
+    
+    // 重新绘制画布，确保棋盘格在底层
+    redrawCanvasWithCheckerboard();
+    
+    showBgToolsPanel();
+    updateStatus('橡皮擦工具已激活，在画布上拖动鼠标擦除');
+}
+
+// 激活画笔工具
+function activateBrush() {
+    appState.bgRemovalState.mode = 'brush';
+    appState.bgRemovalState.selectedPixels = null;
+    elements.canvas.style.cursor = 'crosshair';
+    
+    // 更新按钮状态
+    if (elements.brushBtn) elements.brushBtn.classList.add('active');
+    if (elements.eraserBtn) elements.eraserBtn.classList.remove('active');
+    
+    // 保存当前状态（在开始使用工具前保存一次）
+    saveToHistory();
+    
+    // 重新绘制画布，确保棋盘格在底层
+    redrawCanvasWithCheckerboard();
+    
+    showBgToolsPanel();
+    updateStatus('画笔工具已激活，在画布上拖动鼠标恢复');
+}
+
+// 更新工具大小显示
+function updateToolSizeValue() {
+    if (elements.toolSizeValue) {
+        elements.toolSizeValue.textContent = `大小: ${appState.bgRemovalState.toolSize}px`;
+    }
+}
+
+// 画布鼠标按下
+function handleCanvasMouseDown(e) {
+    if (appState.bgRemovalState.mode === 'eraser' || appState.bgRemovalState.mode === 'brush') {
+        appState.bgRemovalState.isDrawing = true;
+        const rect = elements.canvas.getBoundingClientRect();
+        appState.bgRemovalState.lastX = e.clientX - rect.left;
+        appState.bgRemovalState.lastY = e.clientY - rect.top;
+        
+        // 立即绘制一个点
+        drawTool(appState.bgRemovalState.lastX, appState.bgRemovalState.lastY);
+    }
+}
+
+// 画布鼠标移动
+function handleCanvasMouseMove(e) {
+    if (!appState.bgRemovalState.isDrawing) return;
+    if (appState.bgRemovalState.mode !== 'eraser' && appState.bgRemovalState.mode !== 'brush') return;
+
+    const rect = elements.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // 绘制从上一个点到当前点的线
+    drawToolLine(appState.bgRemovalState.lastX, appState.bgRemovalState.lastY, x, y);
+
+    appState.bgRemovalState.lastX = x;
+    appState.bgRemovalState.lastY = y;
+}
+
+// 画布鼠标抬起
+function handleCanvasMouseUp(e) {
+    if (appState.bgRemovalState.isDrawing) {
+        appState.bgRemovalState.isDrawing = false;
+        // 鼠标抬起时才保存历史，避免频繁保存
+        saveToHistory();
+    }
+}
+
+// 画布鼠标离开
+function handleCanvasMouseLeave(e) {
+    if (appState.bgRemovalState.isDrawing) {
+        appState.bgRemovalState.isDrawing = false;
+        // 鼠标离开时才保存历史
+        saveToHistory();
+    }
+}
+
+// 绘制工具（单点）
+function drawTool(x, y) {
+    const ctx = appState.ctx;
+    const size = appState.bgRemovalState.toolSize;
+    const radius = Math.floor(size / 2);
+
+    // 使用合成模式直接在画布上操作，避免 getImageData/putImageData
+    ctx.save();
+    
+    if (appState.bgRemovalState.mode === 'eraser') {
+        // 橡皮擦：使用 destination-out 模式擦除
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    } else if (appState.bgRemovalState.mode === 'brush') {
+        // 画笔：使用 source-over 模式绘制
+        ctx.globalCompositeOperation = 'source-over';
+        // 从原始图像中采样颜色（简化版：使用白色）
+        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    }
+    
+    // 绘制圆形
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+}
+
+// 绘制工具（线段）
+function drawToolLine(x1, y1, x2, y2) {
+    const ctx = appState.ctx;
+    const size = appState.bgRemovalState.toolSize;
+    const radius = Math.floor(size / 2);
+    
+    ctx.save();
+    
+    if (appState.bgRemovalState.mode === 'eraser') {
+        // 橡皮擦：使用 destination-out 模式擦除
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    } else if (appState.bgRemovalState.mode === 'brush') {
+        // 画笔：使用 source-over 模式绘制
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    }
+    
+    // 设置线条属性
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // 绘制线段
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    
+    ctx.restore();
+}
+
+// 完成编辑
+function finishBgEdit() {
+    appState.bgRemovalState.mode = 'none';
+    appState.bgRemovalState.selectedPixels = null;
+    elements.canvas.style.cursor = 'default';
+    
+    // 清除按钮状态
+    if (elements.eraserBtn) elements.eraserBtn.classList.remove('active');
+    if (elements.brushBtn) elements.brushBtn.classList.remove('active');
+    
+    hideBgToolsPanel();
+    updateStatus('编辑完成');
+}
+
+// 保存到历史
+function saveToHistory() {
+    const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    
+    // 如果当前不在历史末尾，删除后面的历史
+    if (appState.bgRemovalState.historyIndex < appState.bgRemovalState.history.length - 1) {
+        appState.bgRemovalState.history = appState.bgRemovalState.history.slice(0, appState.bgRemovalState.historyIndex + 1);
+    }
+    
+    // 添加到历史
+    appState.bgRemovalState.history.push(imageData);
+    
+    // 限制历史记录数量
+    if (appState.bgRemovalState.history.length > appState.bgRemovalState.maxHistory) {
+        appState.bgRemovalState.history.shift();
+    } else {
+        appState.bgRemovalState.historyIndex++;
+    }
+    
+    updateUndoRedoButtons();
+}
+
+// 撤销
+function undo() {
+    if (appState.bgRemovalState.historyIndex > 0) {
+        appState.bgRemovalState.historyIndex--;
+        const imageData = appState.bgRemovalState.history[appState.bgRemovalState.historyIndex];
+        
+        // 创建临时画布
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = appState.canvas.width;
+        tempCanvas.height = appState.canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // 清空画布并绘制棋盘格
+        appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+        drawCheckerboard();
+        
+        // 绘制历史图像
+        appState.ctx.drawImage(tempCanvas, 0, 0);
+        
+        updateStatus('已撤销');
+        updateUndoRedoButtons();
+    }
+}
+
+// 重做
+function redo() {
+    if (appState.bgRemovalState.historyIndex < appState.bgRemovalState.history.length - 1) {
+        appState.bgRemovalState.historyIndex++;
+        const imageData = appState.bgRemovalState.history[appState.bgRemovalState.historyIndex];
+        
+        // 创建临时画布
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = appState.canvas.width;
+        tempCanvas.height = appState.canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // 清空画布并绘制棋盘格
+        appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+        drawCheckerboard();
+        
+        // 绘制历史图像
+        appState.ctx.drawImage(tempCanvas, 0, 0);
+        
+        updateStatus('已重做');
+        updateUndoRedoButtons();
+    }
+}
+
+// 更新撤销/重做按钮状态
+function updateUndoRedoButtons() {
+    if (elements.undoBtn) {
+        elements.undoBtn.disabled = appState.bgRemovalState.historyIndex <= 0;
+    }
+    if (elements.redoBtn) {
+        elements.redoBtn.disabled = appState.bgRemovalState.historyIndex >= appState.bgRemovalState.history.length - 1;
+    }
+}
+
+// 重绘画布（从原图）
+function redrawCanvas() {
+    if (appState.currentImage) {
+        appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+        // 绘制棋盘格背景
+        drawCheckerboard();
+        appState.ctx.drawImage(appState.currentImage, 0, 0);
+    }
+}
+
+// 绘制棋盘格背景（用于显示透明区域）
+function drawCheckerboard() {
+    const ctx = appState.ctx;
+    const canvas = appState.canvas;
+    
+    // 如果已经有缓存的棋盘格画布且尺寸匹配，直接使用
+    if (appState.bgRemovalState.checkerboardCanvas && 
+        appState.bgRemovalState.checkerboardCanvas.width === canvas.width &&
+        appState.bgRemovalState.checkerboardCanvas.height === canvas.height) {
+        ctx.drawImage(appState.bgRemovalState.checkerboardCanvas, 0, 0);
+        return;
+    }
+    
+    // 创建新的棋盘格画布并缓存
+    const checkerboardCanvas = document.createElement('canvas');
+    checkerboardCanvas.width = canvas.width;
+    checkerboardCanvas.height = canvas.height;
+    const checkerCtx = checkerboardCanvas.getContext('2d');
+    
+    const squareSize = 10; // 每个格子的大小
+    
+    // 绘制棋盘格到缓存画布
+    for (let y = 0; y < canvas.height; y += squareSize) {
+        for (let x = 0; x < canvas.width; x += squareSize) {
+            // 交替绘制浅灰和深灰色格子，使透明区域更明显
+            const isEven = (Math.floor(x / squareSize) + Math.floor(y / squareSize)) % 2 === 0;
+            checkerCtx.fillStyle = isEven ? '#cccccc' : '#999999';
+            checkerCtx.fillRect(x, y, squareSize, squareSize);
+        }
+    }
+    
+    // 缓存棋盘格画布
+    appState.bgRemovalState.checkerboardCanvas = checkerboardCanvas;
+    
+    // 绘制到主画布
+    ctx.drawImage(checkerboardCanvas, 0, 0);
+}
+
+// 重绘画布并保持当前的透明度信息
+function redrawCanvasWithAlpha() {
+    // 保存当前画布内容（包含透明度信息）
+    const currentImageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    
+    // 清空画布
+    appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+    
+    // 绘制棋盘格背景
+    drawCheckerboard();
+    
+    // 恢复画布内容
+    appState.ctx.putImageData(currentImageData, 0, 0);
 }
 
 // 切图预览状态

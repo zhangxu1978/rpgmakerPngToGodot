@@ -32,6 +32,21 @@
                 <span class="tolerance-value">容差: 20</span>
             </div>
 
+            <!-- 去背景增强工具面板 -->
+            <div class="tool-group bg-tools-panel" id="bg-tools-panel" style="display: none;">
+                <button id="expand-selection-btn" class="tool-btn">扩展选区</button>
+                <button id="shrink-selection-btn" class="tool-btn">收缩选区</button>
+                <button id="delete-selection-btn" class="tool-btn">删除选区</button>
+                <button id="cancel-selection-btn" class="tool-btn">取消选区</button>
+                <button id="eraser-btn" class="tool-btn">橡皮擦</button>
+                <button id="brush-btn" class="tool-btn">画笔恢复</button>
+                <input type="range" id="tool-size-slider" min="1" max="50" value="10" class="tolerance-slider">
+                <span id="tool-size-value" class="tolerance-value">大小: 10px</span>
+                <button id="undo-btn" class="tool-btn">撤销</button>
+                <button id="redo-btn" class="tool-btn">重做</button>
+                <button id="finish-edit-btn" class="tool-btn">完成编辑</button>
+            </div>
+
             <div class="tool-group">
                 <button id="slice-btn" class="tool-btn">切图</button>
                 <button id="auto-mark-btn" class="tool-btn">自动打标</button>

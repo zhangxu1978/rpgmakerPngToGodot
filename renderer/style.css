@@ -1127,3 +1127,29 @@ body {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
     transform: translate(-50%, -50%) scale(1.02);
 }
+
+/* 去背景增强工具面板样式 */
+.bg-tools-panel {
+    background-color: #444;
+    padding: 10px;
+    border-radius: 4px;
+    flex-wrap: wrap;
+}
+
+.bg-tools-panel .tool-btn {
+    background-color: #666;
+}
+
+.bg-tools-panel .tool-btn:hover {
+    background-color: #777;
+}
+
+.bg-tools-panel .tool-btn.active {
+    background-color: #4CAF50;
+}
+
+.bg-tools-panel .tool-btn:disabled {
+    background-color: #555;
+    opacity: 0.5;
+    cursor: not-allowed;
+}

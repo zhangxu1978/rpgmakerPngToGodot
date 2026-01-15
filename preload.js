@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkFileExists: (filePath) => ipcRenderer.invoke('fs:checkFileExists', filePath),
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   readPresetFile: (presetName) => ipcRenderer.invoke('fs:readPresetFile', presetName),
+  updateToolbarMenuState: (isHidden) => ipcRenderer.send('toolbar:update-menu-state', isHidden),
 
   // 菜单事件监听
   onMenuOpenFile: (callback) => ipcRenderer.on('menu:open-file', callback),
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuRemoveBackground: (callback) => ipcRenderer.on('menu:remove-background', callback),
   onMenuSliceImage: (callback) => ipcRenderer.on('menu:slice-image', callback),
   onMenuCombineImages: (callback) => ipcRenderer.on('menu:combine-images', callback),
+  onMenuToggleToolbar: (callback) => ipcRenderer.on('menu:toggle-toolbar', (event, checked) => callback(checked)),
   onCacheCleared: (callback) => ipcRenderer.on('cache:cleared', callback),
 
   // 移除事件监听
@@ -31,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu:remove-background');
     ipcRenderer.removeAllListeners('menu:slice-image');
     ipcRenderer.removeAllListeners('menu:combine-images');
+    ipcRenderer.removeAllListeners('menu:toggle-toolbar');
     ipcRenderer.removeAllListeners('cache:cleared');
   }
 });

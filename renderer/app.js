@@ -1135,60 +1135,108 @@ function drawTool(x, y) {
     const size = appState.bgRemovalState.toolSize;
     const radius = Math.floor(size / 2);
 
-    // 使用合成模式直接在画布上操作，避免 getImageData/putImageData
-    ctx.save();
-    
-    if (appState.bgRemovalState.mode === 'eraser') {
-        // 橡皮擦：使用 destination-out 模式擦除
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-    } else if (appState.bgRemovalState.mode === 'brush') {
-        // 画笔：使用 source-over 模式绘制
-        ctx.globalCompositeOperation = 'source-over';
-        // 从原始图像中采样颜色（简化版：使用白色）
-        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    // 保存当前图像数据
+    const imageData = ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    const data = imageData.data;
+
+    // 计算圆形区域并修改像素值
+    for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            // 圆形画笔
+            if (dx * dx + dy * dy <= radius * radius) {
+                const px = Math.floor(x + dx);
+                const py = Math.floor(y + dy);
+                
+                if (px >= 0 && px < appState.canvas.width && py >= 0 && py < appState.canvas.height) {
+                    const index = (py * appState.canvas.width + px) * 4;
+                    
+                    if (appState.bgRemovalState.mode === 'eraser') {
+                        // 橡皮擦：设为透明
+                        data[index + 3] = 0;
+                    } else if (appState.bgRemovalState.mode === 'brush') {
+                        // 画笔：恢复不透明
+                        data[index + 3] = 255;
+                    }
+                }
+            }
+        }
     }
+
+    // 创建临时画布来存放修改后的图像
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = appState.canvas.width;
+    tempCanvas.height = appState.canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(imageData, 0, 0);
     
-    // 绘制圆形
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
+    // 清空主画布
+    ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
     
-    ctx.restore();
+    // 先绘制棋盘格背景
+    drawCheckerboard();
+    
+    // 再用drawImage绘制修改后的图像（保留透明度）
+    ctx.drawImage(tempCanvas, 0, 0);
 }
 
 // 绘制工具（线段）
 function drawToolLine(x1, y1, x2, y2) {
-    const ctx = appState.ctx;
+    // 保存当前图像数据
+    const imageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    const data = imageData.data;
+    
     const size = appState.bgRemovalState.toolSize;
     const radius = Math.floor(size / 2);
     
-    ctx.save();
+    // 计算线段上的点
+    const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    const steps = Math.ceil(distance);
     
-    if (appState.bgRemovalState.mode === 'eraser') {
-        // 橡皮擦：使用 destination-out 模式擦除
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
-        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-    } else if (appState.bgRemovalState.mode === 'brush') {
-        // 画笔：使用 source-over 模式绘制
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
-        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    // 对线段上的每个点应用圆形画笔
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = x1 + (x2 - x1) * t;
+        const y = y1 + (y2 - y1) * t;
+        
+        // 计算圆形区域并修改像素值
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                // 圆形画笔
+                if (dx * dx + dy * dy <= radius * radius) {
+                    const px = Math.floor(x + dx);
+                    const py = Math.floor(y + dy);
+                    
+                    if (px >= 0 && px < appState.canvas.width && py >= 0 && py < appState.canvas.height) {
+                        const index = (py * appState.canvas.width + px) * 4;
+                        
+                        if (appState.bgRemovalState.mode === 'eraser') {
+                            // 橡皮擦：设为透明
+                            data[index + 3] = 0;
+                        } else if (appState.bgRemovalState.mode === 'brush') {
+                            // 画笔：恢复不透明
+                            data[index + 3] = 255;
+                        }
+                    }
+                }
+            }
+        }
     }
     
-    // 设置线条属性
-    ctx.lineWidth = size;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    // 创建临时画布来存放修改后的图像
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = appState.canvas.width;
+    tempCanvas.height = appState.canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(imageData, 0, 0);
     
-    // 绘制线段
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+    // 清空主画布
+    appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
     
-    ctx.restore();
+    // 先绘制棋盘格背景
+    drawCheckerboard();
+    
+    // 再用drawImage绘制修改后的图像（保留透明度）
+    appState.ctx.drawImage(tempCanvas, 0, 0);
 }
 
 // 完成编辑
@@ -1348,6 +1396,28 @@ function redrawCanvasWithAlpha() {
     
     // 恢复画布内容
     appState.ctx.putImageData(currentImageData, 0, 0);
+}
+
+// 重新绘制画布，确保棋盘格在底层（用于橡皮擦/画笔工具）
+function redrawCanvasWithCheckerboard() {
+    // 保存当前画布内容（包含透明度信息）
+    const currentImageData = appState.ctx.getImageData(0, 0, appState.canvas.width, appState.canvas.height);
+    
+    // 创建临时画布
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = appState.canvas.width;
+    tempCanvas.height = appState.canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(currentImageData, 0, 0);
+    
+    // 清空主画布
+    appState.ctx.clearRect(0, 0, appState.canvas.width, appState.canvas.height);
+    
+    // 先绘制棋盘格背景
+    drawCheckerboard();
+    
+    // 再绘制图像内容（使用 drawImage 保留透明度）
+    appState.ctx.drawImage(tempCanvas, 0, 0);
 }
 
 // 切图预览状态

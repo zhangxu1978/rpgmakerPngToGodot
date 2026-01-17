@@ -108,7 +108,10 @@ const elements = {
     statusText: document.getElementById('status-text'),
     // 预设导出元素
     presetSelect: document.getElementById('preset-select'),
-    exportPresetBtn: document.getElementById('export-preset-btn')
+    exportPresetBtn: document.getElementById('export-preset-btn'),
+    // 自定义光标元素
+    customCursor: document.getElementById('custom-cursor'),
+    mainCanvasContainer: document.getElementById('main-canvas-container')
 };
 
 // 拖拽状态
@@ -1039,7 +1042,10 @@ function cancelSelection() {
 function activateEraser() {
     appState.bgRemovalState.mode = 'eraser';
     appState.bgRemovalState.selectedPixels = null;
-    elements.canvas.style.cursor = 'crosshair';
+    
+    // 隐藏默认光标，显示自定义圆形光标
+    elements.mainCanvasContainer.classList.add('eraser-mode');
+    showCustomCursor();
     
     // 更新按钮状态
     if (elements.eraserBtn) elements.eraserBtn.classList.add('active');
@@ -1059,7 +1065,10 @@ function activateEraser() {
 function activateBrush() {
     appState.bgRemovalState.mode = 'brush';
     appState.bgRemovalState.selectedPixels = null;
-    elements.canvas.style.cursor = 'crosshair';
+    
+    // 隐藏默认光标，显示自定义圆形光标
+    elements.mainCanvasContainer.classList.add('brush-mode');
+    showCustomCursor();
     
     // 更新按钮状态
     if (elements.brushBtn) elements.brushBtn.classList.add('active');
@@ -1079,6 +1088,44 @@ function activateBrush() {
 function updateToolSizeValue() {
     if (elements.toolSizeValue) {
         elements.toolSizeValue.textContent = `大小: ${appState.bgRemovalState.toolSize}px`;
+    }
+    // 更新自定义光标大小
+    updateCustomCursorSize();
+}
+
+// 显示自定义光标
+function showCustomCursor() {
+    if (elements.customCursor) {
+        elements.customCursor.style.display = 'block';
+        updateCustomCursorSize();
+        // 添加鼠标移动监听
+        document.addEventListener('mousemove', updateCustomCursorPosition);
+    }
+}
+
+// 隐藏自定义光标
+function hideCustomCursor() {
+    if (elements.customCursor) {
+        elements.customCursor.style.display = 'none';
+        // 移除鼠标移动监听
+        document.removeEventListener('mousemove', updateCustomCursorPosition);
+    }
+}
+
+// 更新自定义光标位置
+function updateCustomCursorPosition(e) {
+    if (elements.customCursor && elements.customCursor.style.display === 'block') {
+        elements.customCursor.style.left = e.clientX + 'px';
+        elements.customCursor.style.top = e.clientY + 'px';
+    }
+}
+
+// 更新自定义光标大小
+function updateCustomCursorSize() {
+    if (elements.customCursor) {
+        const size = appState.bgRemovalState.toolSize;
+        elements.customCursor.style.width = size + 'px';
+        elements.customCursor.style.height = size + 'px';
     }
 }
 
@@ -1243,7 +1290,10 @@ function drawToolLine(x1, y1, x2, y2) {
 function finishBgEdit() {
     appState.bgRemovalState.mode = 'none';
     appState.bgRemovalState.selectedPixels = null;
-    elements.canvas.style.cursor = 'default';
+    
+    // 恢复默认光标
+    elements.mainCanvasContainer.classList.remove('eraser-mode', 'brush-mode');
+    hideCustomCursor();
     
     // 清除按钮状态
     if (elements.eraserBtn) elements.eraserBtn.classList.remove('active');

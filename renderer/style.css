@@ -1153,3 +1153,25 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* 自定义圆形光标 */
+.custom-cursor {
+    position: fixed;
+    border: 2px solid #ff0000;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate(-50%, -50%);
+    background-color: rgba(255, 0, 0, 0.1);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.canvas-container.eraser-mode,
+.canvas-container.brush-mode {
+    cursor: none !important;
+}
+
+.canvas-container.eraser-mode canvas,
+.canvas-container.brush-mode canvas {
+    cursor: none !important;
+}
